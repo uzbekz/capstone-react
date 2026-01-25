@@ -1,0 +1,19 @@
+body {
+  font-family: Arial;
+}
+
+.cart-container {
+  padding: 20px;
+}
+
+.item {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 15px;
+  width: 400px;
+}
+
+input {
+  width: 60px;
+  margin-right: 10px;
+}

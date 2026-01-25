@@ -46,3 +46,14 @@ export async function updateProduct(id, formData) {
     body: formData
   });
 }
+
+export async function getFilteredProducts({ search, category, sort }) {
+  const params = new URLSearchParams();
+
+  if (search) params.append("search", search);
+  if (category) params.append("category", category);
+  if (sort) params.append("sort", sort);
+
+  const res = await fetch(`http://localhost:5000/products?${params}`);
+  return await res.json();
+}

@@ -1,57 +1,41 @@
 import "./MainPage.css";
 import { Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { getProducts, deleteProduct, updateProduct } from "../api.js";
+import { useState, useEffect, useMemo } from "react";
+import { getFilteredProducts, deleteProduct, updateProduct } from "../api.js";
 
-function MainPage({ setProductId, categories }) {
+function MainPage({ setProductId, categories,products, setProducts }) {
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
-  const [allProducts, setAllProducts] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+
+  // Controlled input (typing does NOT trigger filtering)
+  const [searchInput, setSearchInput] = useState("");
+
+  // Applied filters
   const [searchText, setSearchText] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
 
-  
+  // 🔄 Fetch products from backend
+  async function fetchProducts(filters = {}) {
+    setLoading(true);
+    const data = await getFilteredProducts(filters);
+    setProducts(data);
+    setLoading(false);
+  }
+
+  // Initial load
   useEffect(() => {
-    async function loadProducts() {
-      setLoading(true);
-      const data = await getProducts();
-      setAllProducts(data);
-      setProducts(data);
-      setLoading(false);
-    }
-    loadProducts();
+    fetchProducts({});
   }, []);
 
-  
+  // Category / sort change → auto fetch
   useEffect(() => {
-    let filtered = [...allProducts];
+    fetchProducts({ search: searchText, category, sort });
+  }, [category, sort]);
 
-    
-    if (searchText) {
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(searchText) ||
-        p.category.toLowerCase().includes(searchText)
-      );
-    }
-
-    // Category
-    if (category !== "all") {
-      filtered = filtered.filter(p => p.category === category);
-    }
-
-    // Sort
-    if (sort === "price-low-to-high") filtered.sort((a, b) => a.price - b.price);
-    if (sort === "price-high-to-low") filtered.sort((a, b) => b.price - a.price);
-    if (sort === "quantity-low-to-high") filtered.sort((a, b) => a.quantity - b.quantity);
-    if (sort === "quantity-high-to-low") filtered.sort((a, b) => b.quantity - a.quantity);
-
-    setProducts(filtered);
-  }, [searchText, category, sort, allProducts]);
-
-  
+  // 🖼 Binary → Base64 helper
   function convertToBase64(buffer) {
     if (!buffer) return "";
     const bytes = new Uint8Array(buffer.data);
@@ -60,129 +44,120 @@ function MainPage({ setProductId, categories }) {
     return `data:image/jpeg;base64,${btoa(binary)}`;
   }
 
-  
+  /**
+   * 🔥 MEMOIZED PRODUCTS
+   * Base64 conversion happens ONLY when `products` changes
+   */
+  const processedProducts = useMemo(() => {
+    return products.map(p => ({
+      ...p,
+      imageSrc: p.image ? convertToBase64(p.image) : ""
+    }));
+  }, [products]);
+
   function editProduct(id) {
     setProductId(id);
     navigate("/addProduct");
   }
 
-  
   async function deleteItem(id) {
     if (!window.confirm("Delete this product?")) return;
-
     await deleteProduct(id);
-    const updated = allProducts.filter(p => p.id !== id);
-    setAllProducts(updated);
+    fetchProducts({ search: searchText, category, sort });
   }
 
-  
   async function restock(id, amount) {
-    const product = allProducts.find(p => p.id === id);
+    const product = products.find(p => p.id === id);
     const formData = new FormData();
     formData.set("quantity", product.quantity + amount);
 
     await updateProduct(id, formData);
-
-    setAllProducts(prev =>
-      prev.map(p =>
-        p.id === id
-          ? { ...p, quantity: p.quantity + amount }
-          : p
-      )
-    );
+    fetchProducts({ search: searchText, category, sort });
   }
 
   return (
     <>
-      
+      {/* 🔧 Toolbar */}
       <div className="search-bar-container">
         <input
-          type="text"
           className="search-bar"
           placeholder="Search products..."
-          onChange={(e) => setSearchText(e.target.value.toLowerCase())}
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              const text = searchInput.toLowerCase();
+              setSearchText(text);
+              fetchProducts({ search: text, category, sort });
+            }
+          }}
         />
 
-        <select
-          className="category-filter"
-          onChange={(e) => setCategory(e.target.value)}
-        >
+        <select onChange={e => setCategory(e.target.value)}>
           <option value="all">All</option>
           {categories.map(cat => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
         </select>
 
-        <select
-          className="sort-filter"
-          onChange={(e) => setSort(e.target.value)}
-        >
+        <select onChange={e => setSort(e.target.value)}>
           <option value="default">Sort By</option>
-          <option value="price-high-to-low">Price (high to low)</option>
-          <option value="price-low-to-high">Price (low to high)</option>
-          <option value="quantity-high-to-low">Quantity (high to low)</option>
-          <option value="quantity-low-to-high">Quantity (low to high)</option>
+          <option value="price-low-to-high">Price ↑</option>
+          <option value="price-high-to-low">Price ↓</option>
+          <option value="quantity-low-to-high">Qty ↑</option>
+          <option value="quantity-high-to-low">Qty ↓</option>
         </select>
 
         <Link to="/adminOrders">Manage Orders</Link>
-        <Link to="/addProduct">Add product</Link>
-        <Link to="/dashboard">View Dashboard</Link>
+        <Link to="/addProduct">Add Product</Link>
+        <Link to="/dashboard">Dashboard</Link>
 
         <button
           onClick={() => {
             localStorage.clear();
-            navigate("/login");
+            navigate("/");
           }}
         >
           Logout
         </button>
       </div>
 
-      
+      {/* 🛒 Products */}
       <div className="product-array">
-        {loading && (
-          <div className="loading">
-            <h3>Loading products...</h3>
-          </div>
+        {loading && <h3>Loading products...</h3>}
+
+        {!loading && processedProducts.length === 0 && (
+          <h3>No products found.</h3>
         )}
 
-        {!loading && products.length === 0 && (
-          <div className="empty-state">
-            <h3>No products found.</h3>
-          </div>
-        )}
+        {!loading &&
+          processedProducts.map(product => {
+            const lowStock = product.quantity < 10;
 
-        {products.map(product => {
-          const imageSrc = convertToBase64(product.image);
-          const lowStock = product.quantity < 10;
+            return (
+              <div key={product.id} className="product-card">
+                {lowStock && <p style={{ color: "red" }}>⚠ Low Stock</p>}
 
-          return (
-            <div key={product.id} className="product-card">
-              {lowStock && <p style={{ color: "red" }}>⚠ Low Stock</p>}
+                <img
+                  src={product.imageSrc}
+                  alt={product.name}
+                  width={300}
+                  height={300}
+                  style={{ objectFit: "cover" }}
+                />
 
-              <img
-                src={imageSrc}
-                alt={product.name}
-                width={300}
-                height={300}
-                style={{ objectFit: "cover" }}
-              />
+                <p><b>{product.name}</b></p>
+                <p>{product.description}</p>
+                <p>Category: {product.category}</p>
+                <p>Price: ${product.price}</p>
+                <p>Qty: {product.quantity}</p>
 
-              <p><b>{product.name}</b></p>
-              <p>{product.description}</p>
-              <p>Category: {product.category}</p>
-              <p>Price: ${product.price}</p>
-              <p>Qty: {product.quantity}</p>
-
-              <button onClick={() => editProduct(product.id)}>Edit</button>
-              <button onClick={() => deleteItem(product.id)}>Delete</button>
-
-              <div style={{ marginTop: "10px" }}>
+                <button onClick={() => editProduct(product.id)}>Edit</button>
+                <button onClick={() => deleteItem(product.id)}>Delete</button>
                 <button onClick={() => restock(product.id, 100)}>+100</button>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
     </>
   );

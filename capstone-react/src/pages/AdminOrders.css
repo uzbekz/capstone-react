@@ -1,0 +1,40 @@
+.admin-orders {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+}
+
+.order {
+  border: 1px solid #ccc;
+  padding: 15px;
+  margin: 20px;
+  width: 600px;
+  background: #fff;
+}
+
+.pending {
+  color: orange;
+}
+
+.dispatched {
+  color: green;
+}
+
+.cancelled {
+  color: red;
+}
+
+.actions {
+  margin-top: 10px;
+}
+
+.actions button {
+  margin-right: 10px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 20px;
+  font-weight: bold;
+  text-decoration: none;
+  color: #007bff;
+}

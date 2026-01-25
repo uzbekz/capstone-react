@@ -1,0 +1,25 @@
+.product-array {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 50px;
+  padding-left: 30px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 20px;
+  margin: 20px;
+  align-items: center;
+}
+
+.search-bar,
+select {
+  padding: 8px;
+  font-size: 16px;
+}
+
+.product-card {
+  border: 2px solid #ccc;
+  padding: 10px;
+  width: 320px;
+}

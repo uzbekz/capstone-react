@@ -17,3 +17,12 @@ input, button {
   margin:10px 0; 
   padding:8px; 
 }
+
+#registerForm{
+  display: flex;
+  flex-direction: column;
+}
+
+#registerForm input{
+  width: auto;
+}

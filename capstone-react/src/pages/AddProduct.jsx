@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./AddProduct.css";
-import { getProductById, addProduct } from "../api";
+import { getProductById, addProduct, updateProduct } from "../api";
 
 function AddProduct({ productId, setProductId, categories }) {
   const navigate = useNavigate();
@@ -60,8 +60,11 @@ function AddProduct({ productId, setProductId, categories }) {
       formData.append("image", image);
     }
 
-    await addProduct(formData);
-
+    if(productId){
+      await updateProduct(productId, formData)
+    }else{
+      await addProduct(formData);
+    }
     setProductId(null);
     navigate("/mainPage");
   }

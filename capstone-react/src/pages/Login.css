@@ -18,3 +18,12 @@ input, button {
   margin:10px 0; 
   padding:8px; 
 }
+
+#loginForm{
+  display: flex;
+  flex-direction: column;
+}
+
+#loginForm input{
+  width: auto;
+}

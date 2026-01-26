@@ -20,8 +20,8 @@ function AdminOrders() {
 
     const res = await fetch("http://localhost:5000/orders/all", {
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     const data = await res.json();
@@ -33,16 +33,21 @@ function AdminOrders() {
     loadOrders();
   }, []);
 
+  function convertToBase64(buffer) {
+    if (!buffer) return "";
+    const bytes = new Uint8Array(buffer.data);
+    let binary = "";
+    bytes.forEach((b) => (binary += String.fromCharCode(b)));
+    return `data:image/jpeg;base64,${btoa(binary)}`;
+  }
+
   async function dispatchOrder(id) {
-    const res = await fetch(
-      `http://localhost:5000/orders/${id}/dispatch`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    );
+    const res = await fetch(`http://localhost:5000/orders/${id}/dispatch`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     const data = await res.json();
     alert(data.message);
@@ -50,15 +55,12 @@ function AdminOrders() {
   }
 
   async function cancelOrder(id) {
-    const res = await fetch(
-      `http://localhost:5000/orders/${id}/cancel`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    );
+    const res = await fetch(`http://localhost:5000/orders/${id}/cancel`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     const data = await res.json();
     alert(data.message);
@@ -71,36 +73,44 @@ function AdminOrders() {
 
       {loading && <p>Loading orders...</p>}
 
-      {!loading && orders.length === 0 && (
-        <p>No orders yet.</p>
-      )}
+      {!loading && orders.length === 0 && <p>No orders yet.</p>}
 
       {!loading &&
-        orders.map(order => (
+        orders.map((order) => (
           <div key={order.id} className="order">
             <h3>Order #{order.id}</h3>
-
             <p>
-              Status:{" "}
-              <b className={order.status}>
-                {order.status}
-              </b>
+              Customer ID: <b>{order.customer_id}</b>
+            </p>
+            <p>
+              Status: <b className={order.status}>{order.status}</b>
             </p>
 
             <p>Total: ${order.total_price}</p>
 
             <p>
               Date:{" "}
-              {new Date(
-                order.createdAt || order.created_at
-              ).toLocaleString()}
+              {new Date(order.createdAt || order.created_at).toLocaleString()}
             </p>
 
             <ul>
-              {order.items.map(item => (
-                <li key={item.id}>
-                  {item.Product.name} × {item.quantity} — $
-                  {item.price}
+              {order.items.map((item) => (
+                <li key={item.id} className="order-item">
+                  <img
+                    src={convertToBase64(item.Product.image)}
+                    alt={item.Product.name}
+                    width={60}
+                    height={60}
+                    style={{ objectFit: "cover", marginRight: "10px" }}
+                  />
+
+                  <div>
+                    <div>
+                      <b>{item.Product.name}</b>
+                    </div>
+                    <div>Qty: {item.quantity}</div>
+                    <div>Price: ${item.price}</div>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -110,9 +120,7 @@ function AdminOrders() {
                 <button onClick={() => dispatchOrder(order.id)}>
                   Dispatch
                 </button>
-                <button onClick={() => cancelOrder(order.id)}>
-                  Cancel
-                </button>
+                <button onClick={() => cancelOrder(order.id)}>Cancel</button>
               </div>
             )}
           </div>

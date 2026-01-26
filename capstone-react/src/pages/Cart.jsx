@@ -27,15 +27,15 @@ function Cart() {
   }, [cart]);
 
   function updateQty(index, qty) {
-    setCart(prev =>
+    setCart((prev) =>
       prev.map((item, i) =>
-        i === index ? { ...item, qty: Number(qty) } : item
-      )
+        i === index ? { ...item, qty: Number(qty) } : item,
+      ),
     );
   }
 
   function removeItem(index) {
-    setCart(prev => prev.filter((_, i) => i !== index));
+    setCart((prev) => prev.filter((_, i) => i !== index));
   }
 
   function clearCart() {
@@ -49,18 +49,18 @@ function Cart() {
       return;
     }
 
-    const items = cart.map(item => ({
+    const items = cart.map((item) => ({
       product_id: item.id,
-      quantity: item.qty
+      quantity: item.qty,
     }));
 
     const res = await fetch("http://localhost:5000/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ items })
+      body: JSON.stringify({ items }),
     });
 
     const data = await res.json();
@@ -84,14 +84,26 @@ function Cart() {
 
         {cart.map((item, index) => (
           <div key={item.id} className="item">
-            <p><b>{item.name}</b></p>
+            {item.imageSrc && (
+              <img
+                src={item.imageSrc}
+                alt={item.name}
+                width={60}
+                height={60}
+                style={{ objectFit: "cover", marginBottom: "10px" }}
+              />
+            )}
+
+            <p>
+              <b>{item.name}</b>
+            </p>
             <p>Price: ${item.price}</p>
 
             <input
               type="number"
               min="1"
               value={item.qty}
-              onChange={e => updateQty(index, e.target.value)}
+              onChange={(e) => updateQty(index, e.target.value)}
             />
 
             <button onClick={() => removeItem(index)}>Remove</button>
@@ -99,14 +111,13 @@ function Cart() {
         ))}
       </div>
 
-      {cart.length > 0 && (
-        <h3>Total: ${totalPrice.toFixed(2)}</h3>
-      )}
+      {cart.length > 0 && <h3>Total: ${totalPrice.toFixed(2)}</h3>}
 
       <button onClick={checkout}>Checkout</button>
       <button onClick={clearCart}>Clear Cart</button>
 
-      <br /><br />
+      <br />
+      <br />
       <Link to="/customerProducts">⬅ Back to Products</Link>
     </>
   );

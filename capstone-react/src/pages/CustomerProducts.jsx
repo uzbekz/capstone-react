@@ -82,7 +82,8 @@ function CustomerProducts({ products, setProducts, categories }) {
         id: product.id,
         name: product.name,
         price: product.price,
-        qty
+        qty,
+        imageSrc: product.imageSrc
       });
     }
 

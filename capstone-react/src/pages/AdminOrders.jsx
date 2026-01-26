@@ -10,7 +10,7 @@ function AdminOrders() {
 
   const token = localStorage.getItem("token");
 
-  // 🔐 Guard
+  
   useEffect(() => {
     if (!token) navigate("/");
   }, [token, navigate]);

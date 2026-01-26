@@ -9,12 +9,12 @@ function CustomerOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔐 Auth guard
+  
   useEffect(() => {
     if (!token) navigate("/");
   }, [token, navigate]);
 
-  // 📦 Fetch orders
+  
   useEffect(() => {
     async function loadOrders() {
       try {

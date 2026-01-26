@@ -9,15 +9,15 @@ function MainPage({ setProductId, categories,products, setProducts }) {
   const [loading, setLoading] = useState(false);
   
 
-  // Controlled input (typing does NOT trigger filtering)
+  
   const [searchInput, setSearchInput] = useState("");
 
-  // Applied filters
+  
   const [searchText, setSearchText] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
 
-  // 🔄 Fetch products from backend
+ 
   async function fetchProducts(filters = {}) {
     setLoading(true);
     const data = await getFilteredProducts(filters);
@@ -25,17 +25,17 @@ function MainPage({ setProductId, categories,products, setProducts }) {
     setLoading(false);
   }
 
-  // Initial load
+  
   useEffect(() => {
     fetchProducts({});
   }, []);
 
-  // Category / sort change → auto fetch
+  
   useEffect(() => {
     fetchProducts({ search: searchText, category, sort });
   }, [category, sort]);
 
-  // 🖼 Binary → Base64 helper
+  
   function convertToBase64(buffer) {
     if (!buffer) return "";
     const bytes = new Uint8Array(buffer.data);
@@ -44,10 +44,7 @@ function MainPage({ setProductId, categories,products, setProducts }) {
     return `data:image/jpeg;base64,${btoa(binary)}`;
   }
 
-  /**
-   * 🔥 MEMOIZED PRODUCTS
-   * Base64 conversion happens ONLY when `products` changes
-   */
+  
   const processedProducts = useMemo(() => {
     return products.map(p => ({
       ...p,
@@ -77,7 +74,7 @@ function MainPage({ setProductId, categories,products, setProducts }) {
 
   return (
     <>
-      {/* 🔧 Toolbar */}
+      
       <div className="search-bar-container">
         <input
           className="search-bar"
@@ -122,7 +119,7 @@ function MainPage({ setProductId, categories,products, setProducts }) {
         </button>
       </div>
 
-      {/* 🛒 Products */}
+      
       <div className="product-array">
         {loading && <h3>Loading products...</h3>}
 

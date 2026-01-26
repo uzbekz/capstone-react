@@ -10,17 +10,17 @@ function CustomerProducts({ products, setProducts, categories }) {
 
   const [loading, setLoading] = useState(true);
 
-  // UI filters
+  
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
 
-  // 🔐 Auth guard
+  
   useEffect(() => {
     if (!token) navigate("/");
   }, [token, navigate]);
 
-  // 📦 Initial load
+  
   useEffect(() => {
     async function loadProducts() {
       setLoading(true);
@@ -31,7 +31,7 @@ function CustomerProducts({ products, setProducts, categories }) {
     loadProducts();
   }, [setProducts]);
 
-  // 🖼 Base64 conversion — ONLY when products change
+  
   const processedProducts = useMemo(() => {
     return products.map(p => ({
       ...p,
@@ -46,7 +46,7 @@ function CustomerProducts({ products, setProducts, categories }) {
     }));
   }, [products]);
 
-  // 🔍 Filtering (cheap, client-side)
+  
   const filteredProducts = useMemo(() => {
     let filtered = [...processedProducts];
 
@@ -69,7 +69,7 @@ function CustomerProducts({ products, setProducts, categories }) {
     return filtered;
   }, [processedProducts, search, category, sort]);
 
-  // 🛒 Cart logic (unchanged, but React-safe)
+  
   function addToCart(product, qty) {
     let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
@@ -93,7 +93,7 @@ function CustomerProducts({ products, setProducts, categories }) {
 
   return (
     <>
-      {/* 🔧 Toolbar */}
+      
       <div className="toolbar">
         <input
           className="search-bar"
@@ -129,7 +129,7 @@ function CustomerProducts({ products, setProducts, categories }) {
         </button>
       </div>
 
-      {/* 📦 Products */}
+      
       <div className="product-array">
         {loading && <h3>Loading products...</h3>}
 

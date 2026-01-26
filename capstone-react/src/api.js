@@ -15,7 +15,7 @@ export async function getProductById(id) {
   return await res.json();
 }
 
-// PROTECTED (Product Manager
+
 export async function addProduct(formData) {
   const res = await fetch(`${BASE_URL}/products/add`, {
     method: "POST",

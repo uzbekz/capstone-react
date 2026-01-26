@@ -6,22 +6,22 @@ function Cart() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  // ✅ Initialize from localStorage (KEY FIX)
+  
   const [cart, setCart] = useState(() => {
     return JSON.parse(localStorage.getItem("cart")) || [];
   });
 
-  // 🔐 Auth guard
+  
   useEffect(() => {
     if (!token) navigate("/");
   }, [token, navigate]);
 
-  // 💾 Persist cart changes
+  
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
-  // 💰 Total price
+  
   const totalPrice = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   }, [cart]);

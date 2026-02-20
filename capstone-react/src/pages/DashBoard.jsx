@@ -1,102 +1,106 @@
-import "./Dashboard.css";
-import { useEffect, useRef } from "react";
+import "./DashBoard.css";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getProducts } from "../api.js";
 import Chart from "chart.js/auto";
 
-function Dashboard({products,setProducts}) {
+function Dashboard({ products }) {
 
-
+  const [localProducts, setLocalProducts] = useState([]);
   const categoryChartRef = useRef(null);
   const stockChartRef = useRef(null);
   const topProductsChartRef = useRef(null);
 
   const chartsRef = useRef([]);
 
+  // ✅ Fetch once only if products not provided
   useEffect(() => {
-    async function loadProducts() {
-      const data = await getProducts();
-      setProducts(data);
+    async function load() {
+      if (products && products.length) {
+        setLocalProducts(products);
+      } else {
+        const data = await getProducts();
+        setLocalProducts(data);
+      }
     }
-    loadProducts();
-  }, []);
+    load();
+  }, [products]);
 
-  useEffect(() => {
-    if (!products.length) return;
+  // ✅ Memoize computed data (prevents recalculation)
+  const { categoryMap, topProducts, stockProducts } = useMemo(() => {
 
-    // Cleanup old charts
-    chartsRef.current.forEach(chart => chart.destroy());
-    chartsRef.current = [];
-
-    // KPIs
     const categoryMap = {};
-    products.forEach(p => {
+    localProducts.forEach(p => {
       categoryMap[p.category] = (categoryMap[p.category] || 0) + 1;
     });
 
-    const topProducts = [...products]
+    const topProducts = [...localProducts]
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
 
-    // CATEGORY BAR CHART
-    chartsRef.current.push(
-      new Chart(categoryChartRef.current, {
-        type: "bar",
-        data: {
-          labels: Object.keys(categoryMap),
-          datasets: [
-            {
-              label: "Products per Category",
-              data: Object.values(categoryMap)
-            }
-          ]
-        }
-      })
-    );
+    // 🔥 IMPORTANT: Limit pie chart to top 10 only
+    const stockProducts = [...localProducts]
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10);
 
-    // STOCK PIE CHART
-    chartsRef.current.push(
-      new Chart(stockChartRef.current, {
-        type: "pie",
-        data: {
-          labels: products.map(p => p.name),
-          datasets: [
-            {
-              label: "Stock Distribution",
-              data: products.map(p => p.quantity)
-            }
-          ]
-        }
-      })
-    );
+    return { categoryMap, topProducts, stockProducts };
 
-    // TOP PRODUCTS CHART
-    chartsRef.current.push(
-      new Chart(topProductsChartRef.current, {
-        type: "bar",
-        data: {
-          labels: topProducts.map(p => p.name),
-          datasets: [
-            {
-              label: "Top 5 Stocked Products",
-              data: topProducts.map(p => p.quantity)
-            }
-          ]
-        }
-      })
-    );
+  }, [localProducts]);
+
+  // ✅ Create charts only when data changes
+  useEffect(() => {
+    if (!localProducts.length) return;
+
+    chartsRef.current.forEach(chart => chart.destroy());
+    chartsRef.current = [];
+
+    const categoryChart = new Chart(categoryChartRef.current, {
+      type: "bar",
+      data: {
+        labels: Object.keys(categoryMap),
+        datasets: [{
+          label: "Products per Category",
+          data: Object.values(categoryMap)
+        }]
+      }
+    });
+
+    const stockChart = new Chart(stockChartRef.current, {
+      type: "pie",
+      data: {
+        labels: stockProducts.map(p => p.name),
+        datasets: [{
+          label: "Stock Distribution (Top 10)",
+          data: stockProducts.map(p => p.quantity)
+        }]
+      }
+    });
+
+    const topChart = new Chart(topProductsChartRef.current, {
+      type: "bar",
+      data: {
+        labels: topProducts.map(p => p.name),
+        datasets: [{
+          label: "Top 5 Stocked Products",
+          data: topProducts.map(p => p.quantity)
+        }]
+      }
+    });
+
+    chartsRef.current.push(categoryChart, stockChart, topChart);
 
     return () => {
       chartsRef.current.forEach(chart => chart.destroy());
       chartsRef.current = [];
     };
-  }, [products]);
+
+  }, [categoryMap, topProducts, stockProducts]);
 
   // KPIs
-  const totalProducts = products.length;
-  const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
-  const lowStock = products.filter(p => p.quantity < 10).length;
-  const inventoryValue = products.reduce(
+  const totalProducts = localProducts.length;
+  const totalStock = localProducts.reduce((sum, p) => sum + p.quantity, 0);
+  const lowStock = localProducts.filter(p => p.quantity < 10).length;
+  const inventoryValue = localProducts.reduce(
     (sum, p) => sum + p.price * p.quantity,
     0
   );
@@ -129,7 +133,7 @@ function Dashboard({products,setProducts}) {
 
       <div className="charts">
         <canvas ref={categoryChartRef}></canvas>
-        <canvas ref={stockChartRef}></canvas>
+        <canvas ref={stockChartRef} className="pie-chart"></canvas>
         <canvas ref={topProductsChartRef}></canvas>
       </div>
 

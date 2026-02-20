@@ -69,62 +69,64 @@ function AdminOrders() {
 
   return (
     <div className="admin-orders">
-      <h2>All Orders</h2>
+      <h1>Manage Orders</h1>
 
-      {loading && <p>Loading orders...</p>}
+      {loading && <p className="loading">Loading orders...</p>}
 
-      {!loading && orders.length === 0 && <p>No orders yet.</p>}
+      {!loading && orders.length === 0 && <p className="empty">No orders yet.</p>}
 
-      {!loading &&
-        orders.map((order) => (
-          <div key={order.id} className="order">
-            <h3>Order #{order.id}</h3>
-            <p>
-              Customer ID: <b>{order.customer_id}</b>
-            </p>
-            <p>
-              Status: <b className={order.status}>{order.status}</b>
-            </p>
-
-            <p>Total: ${order.total_price}</p>
-
-            <p>
-              Date:{" "}
-              {new Date(order.createdAt || order.created_at).toLocaleString()}
-            </p>
-
-            <ul>
-              {order.items.map((item) => (
-                <li key={item.id} className="order-item">
-                  <img
-                    src={convertToBase64(item.Product.image)}
-                    alt={item.Product.name}
-                    width={60}
-                    height={60}
-                    style={{ objectFit: "cover", marginRight: "10px" }}
-                  />
-
-                  <div>
-                    <div>
-                      <b>{item.Product.name}</b>
-                    </div>
-                    <div>Qty: {item.quantity}</div>
-                    <div>Price: ${item.price}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            {order.status === "pending" && (
-              <div className="actions">
-                <button onClick={() => dispatchOrder(order.id)}>
-                  Dispatch
-                </button>
-                <button onClick={() => cancelOrder(order.id)}>Cancel</button>
+      {!loading && (
+        <div className="orders-container">
+          {orders.map((order) => (
+            <div key={order.id} className="order">
+              <div className="order-header">
+                <div>
+                  <div className="order-id">Order #{order.id}</div>
+                  <div className="order-meta">Customer #{order.customer_id}</div>
+                </div>
+                <span className={`order-status ${order.status}`}>
+                  {order.status.toUpperCase()}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
+
+              <div className="order-items-grid">
+                {order.items.map((item) => (
+                  <div key={item.id} className="order-item-card">
+                    <img
+                      src={convertToBase64(item.Product.image)}
+                      alt={item.Product.name}
+                      className="item-image"
+                    />
+                    <div className="item-details">
+                      <h4>{item.Product.name}</h4>
+                      <p className="qty">Qty: <strong>{item.quantity}</strong></p>
+                      <p className="price">${item.price} each</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="order-footer">
+                <div className="order-info">
+                  <p><span>Total:</span> <strong>${order.total_price}</strong></p>
+                  <p><span>Date:</span> <strong>{new Date(order.createdAt || order.created_at).toLocaleDateString()}</strong></p>
+                </div>
+
+                {order.status === "pending" && (
+                  <div className="actions">
+                    <button className="btn-dispatch" onClick={() => dispatchOrder(order.id)}>
+                      ✓ Dispatch
+                    </button>
+                    <button className="btn-cancel" onClick={() => cancelOrder(order.id)}>
+                      ✕ Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Link to="/mainPage" className="back-link">
         ⬅ Back to Admin Dashboard

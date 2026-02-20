@@ -37,50 +37,71 @@ function CustomerOrders() {
   }, [token]);
 
   return (
-    <>
-      <h2>My Orders</h2>
+    <div style={{ padding: "24px" }}>
+      <h2>📦 My Orders</h2>
 
       <div className="orders-container">
-        {loading && <p>Loading orders...</p>}
+        {loading && <p style={{ textAlign: "center", color: "var(--muted)" }}>Loading orders...</p>}
 
         {!loading && orders.length === 0 && (
-          <p>No orders yet.</p>
+          <div className="empty-state">
+            <p>No orders yet.</p>
+            <p style={{ fontSize: "14px", marginTop: "8px" }}>
+              Start shopping to see your orders here!
+            </p>
+          </div>
         )}
 
         {!loading && orders.map(order => (
           <div key={order.id} className="order">
-            <h3>Order #{order.id}</h3>
+            <div className="order-header">
+              <div>
+                <h3 style={{ margin: "0 0 4px 0" }}>Order #{order.id}</h3>
+                <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
+                  {new Date(order.createdAt || order.created_at).toLocaleString()}
+                </p>
+              </div>
+              <span className={`status-badge status-${order.status}`}>
+                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+              </span>
+            </div>
 
-            <p>
-              Status:{" "}
-              <b className={order.status}>
-                {order.status}
-              </b>
-            </p>
-
-            <p>Total: ${order.total_price}</p>
-
-            <p>
-              Date:{" "}
-              {new Date(
-                order.createdAt || order.created_at
-              ).toLocaleString()}
-            </p>
-
-            <ul>
+            <div className="order-items-grid">
               {order.items.map(item => (
-                <li key={item.id}>
-                  {item.Product.name} x {item.quantity} — ${item.price}
-                </li>
+                <div key={item.id} className="order-item">
+                  {item.Product.image && (
+                    <div className="item-image">
+                      <img 
+                        src={`data:image/jpeg;base64,${item.Product.image}`} 
+                        alt={item.Product.name}
+                      />
+                    </div>
+                  )}
+                  <div className="item-info">
+                    <p className="item-name">{item.Product.name}</p>
+                    <p className="item-meta">Qty: {item.quantity}</p>
+                    <p className="item-price">${Number(item.price).toFixed(2)}</p>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
+
+            <div className="order-footer">
+              <div>
+                <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>Total Amount</p>
+                <h4 style={{ margin: "4px 0 0 0" }}>
+                  ${Number(order.total_price).toFixed(2)}
+                </h4>
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
-      <br />
-      <Link to="/customerProducts">⬅ Back to Products</Link>
-    </>
+      <Link to="/customerProducts" className="back-link">
+        ⬅ Back to Products
+      </Link>
+    </div>
   );
 }
 

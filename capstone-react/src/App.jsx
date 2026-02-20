@@ -31,7 +31,7 @@ function App() {
         <Route path="/register" element={<Register />}/>
         <Route path="/mainPage" element={<MainPage setProductId={setProductId} categories={categories} products={products} setProducts={setProducts}/>}/>
         <Route path ="/addProduct" element={<AddProduct productId={productId} setProductId={setProductId} categories={categories} setCategories={setCategories}/>} />
-        <Route path='/dashBoard' element={<Dashboard products={products} setProducts={setProducts}/>}/>
+        <Route path='/dashboard' element={<Dashboard products={products} setProducts={setProducts}/>}/>
         <Route path='/adminOrders' element={<AdminOrders />}/>
         <Route path='/customerProducts' element={<CustomerProducts products={products} setProducts={setProducts} categories={categories}/>}/>
         <Route path="/cart" element={<Cart />}/>

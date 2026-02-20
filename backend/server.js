@@ -84,19 +84,34 @@ app.post(
   authorize('product_manager'),
   upload.single('image'),
   async (req, res) => {
-    const { name, description, category, price, quantity, weight } = req.body;
+    try {
+      const { name, description, category, price, quantity, weight } = req.body;
 
-    const newProduct = await Product.create({
-      name,
-      description,
-      category,
-      price,
-      quantity,
-      weight,
-      image: req.file ? req.file.buffer : null
-    });
+      // Check if product with same name already exists
+      const existingProduct = await Product.findOne({
+        where: { name: name.trim() }
+      });
 
-    res.status(201).json(newProduct);
+      if (existingProduct) {
+        return res.status(400).json({ 
+          error: `Product with name "${name}" already exists. Please use a different name.` 
+        });
+      }
+
+      const newProduct = await Product.create({
+        name,
+        description,
+        category,
+        price,
+        quantity,
+        weight,
+        image: req.file ? req.file.buffer : null
+      });
+
+      res.status(201).json(newProduct);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   }
 );
 
@@ -199,14 +214,23 @@ app.get(
           include: [
             {
               model: Product,
-              attributes: ["name"]
+              attributes: ["name", "image"]
             }
           ]
         });
 
+        // Convert image buffers to base64 strings
+        const itemsWithBase64 = items.map(item => {
+          const itemObj = item.toJSON();
+          if (itemObj.Product.image && Buffer.isBuffer(item.Product.image)) {
+            itemObj.Product.image = item.Product.image.toString('base64');
+          }
+          return itemObj;
+        });
+
         result.push({
           ...order.toJSON(),
-          items
+          items: itemsWithBase64
         });
       }
 

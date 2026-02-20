@@ -1,56 +1,65 @@
 import "./MainPage.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
-import { getFilteredProducts, deleteProduct, updateProduct } from "../api.js";
+import { getProducts } from "../api.js";
 
-function MainPage({ setProductId, categories,products, setProducts }) {
+function MainPage({ setProductId, categories, products, setProducts }) {
   const navigate = useNavigate();
+  const token = localStorage.getItem("token");
 
-  const [loading, setLoading] = useState(false);
-  
-
-  
-  const [searchInput, setSearchInput] = useState("");
-
-  
-  const [searchText, setSearchText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
 
- 
-  async function fetchProducts(filters = {}) {
-    setLoading(true);
-    const data = await getFilteredProducts(filters);
-    setProducts(data);
-    setLoading(false);
-  }
-
-  
+  // Load products once on mount
   useEffect(() => {
-    fetchProducts({});
-  }, []);
+    async function loadProducts() {
+      setLoading(true);
+      const data = await getProducts();
+      setProducts(data);
+      setLoading(false);
+    }
+    loadProducts();
+  }, [setProducts]);
 
-  
-  useEffect(() => {
-    fetchProducts({ search: searchText, category, sort });
-  }, [category, sort]);
-
-  
-  function convertToBase64(buffer) {
-    if (!buffer) return "";
-    const bytes = new Uint8Array(buffer.data);
-    let binary = "";
-    bytes.forEach(b => (binary += String.fromCharCode(b)));
-    return `data:image/jpeg;base64,${btoa(binary)}`;
-  }
-
-  
+  // Convert buffer to base64
   const processedProducts = useMemo(() => {
     return products.map(p => ({
       ...p,
-      imageSrc: p.image ? convertToBase64(p.image) : ""
+      imageSrc: p.image
+        ? (() => {
+            const bytes = new Uint8Array(p.image.data);
+            let binary = "";
+            bytes.forEach(b => (binary += String.fromCharCode(b)));
+            return `data:image/jpeg;base64,${btoa(binary)}`;
+          })()
+        : ""
     }));
   }, [products]);
+
+  // Filter and sort instantly
+  const filteredProducts = useMemo(() => {
+    let filtered = [...processedProducts];
+
+    if (search) {
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(search) ||
+        p.category.toLowerCase().includes(search)
+      );
+    }
+
+    if (category !== "all") {
+      filtered = filtered.filter(p => p.category === category);
+    }
+
+    if (sort === "price-low-to-high") filtered.sort((a, b) => a.price - b.price);
+    if (sort === "price-high-to-low") filtered.sort((a, b) => b.price - a.price);
+    if (sort === "quantity-low-to-high") filtered.sort((a, b) => a.quantity - b.quantity);
+    if (sort === "quantity-high-to-low") filtered.sort((a, b) => b.quantity - a.quantity);
+
+    return filtered;
+  }, [processedProducts, search, category, sort]);
 
   function editProduct(id) {
     setProductId(id);
@@ -59,39 +68,30 @@ function MainPage({ setProductId, categories,products, setProducts }) {
 
   async function deleteItem(id) {
     if (!window.confirm("Delete this product?")) return;
-    await deleteProduct(id);
-    fetchProducts({ search: searchText, category, sort });
+    setProducts(products.filter(p => p.id !== id));
   }
 
   async function restock(id, amount) {
     const product = products.find(p => p.id === id);
-    const formData = new FormData();
-    formData.set("quantity", product.quantity + amount);
-
-    await updateProduct(id, formData);
-    fetchProducts({ search: searchText, category, sort });
+    if (product) {
+      const updatedProducts = products.map(p =>
+        p.id === id ? { ...p, quantity: p.quantity + amount } : p
+      );
+      setProducts(updatedProducts);
+    }
   }
 
   return (
     <>
-      
       <div className="search-bar-container">
         <input
           className="search-bar"
           placeholder="Search products..."
-          value={searchInput}
-          onChange={e => setSearchInput(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter") {
-              const text = searchInput.toLowerCase();
-              setSearchText(text);
-              fetchProducts({ search: text, category, sort });
-            }
-          }}
+          onChange={e => setSearch(e.target.value.toLowerCase())}
         />
 
         <select onChange={e => setCategory(e.target.value)}>
-          <option value="all">All</option>
+          <option value="all">All Categories</option>
           {categories.map(cat => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
@@ -119,20 +119,23 @@ function MainPage({ setProductId, categories,products, setProducts }) {
         </button>
       </div>
 
-      
       <div className="product-array">
         {loading && <h3>Loading products...</h3>}
 
-        {!loading && processedProducts.length === 0 && (
+        {!loading && filteredProducts.length === 0 && (
           <h3>No products found.</h3>
         )}
 
         {!loading &&
-          processedProducts.map(product => {
+          filteredProducts.map(product => {
             const lowStock = product.quantity < 10;
 
             return (
-              <div key={product.id} className="product-card">
+              <div
+                key={product.id}
+                className="product-card"
+                style={{ borderColor: lowStock ? "red" : "#ccc" }}
+              >
                 {lowStock && <p style={{ color: "red" }}>⚠ Low Stock</p>}
 
                 <img

@@ -60,13 +60,22 @@ function AddProduct({ productId, setProductId, categories }) {
       formData.append("image", image);
     }
 
-    if(productId){
-      await updateProduct(productId, formData)
-    }else{
-      await addProduct(formData);
+    try {
+      if (productId) {
+        await updateProduct(productId, formData);
+      } else {
+        const result = await addProduct(formData);
+        // Check for error in response
+        if (result.error) {
+          alert(result.error);
+          return;
+        }
+      }
+      setProductId(null);
+      navigate("/mainPage");
+    } catch (err) {
+      alert("Error: " + (err.message || "Failed to save product"));
     }
-    setProductId(null);
-    navigate("/mainPage");
   }
 
   return (

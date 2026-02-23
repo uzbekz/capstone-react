@@ -8,8 +8,18 @@ import { authenticate, authorize } from './middleware/auth.js';
 import User from './models/User.js';
 import Order from "./models/Order.js";
 import OrderItem from "./models/OrderItem.js";
+import Cart from "./models/Cart.js";
 import { Op } from "sequelize";
+
+// associations
 OrderItem.belongsTo(Product, { foreignKey: "product_id" });
+
+// cart associations (already defined in model file too, but ensure here for sync.)
+User.hasMany(Cart, { foreignKey: "user_id" });
+Cart.belongsTo(User, { foreignKey: "user_id" });
+
+Product.hasMany(Cart, { foreignKey: "product_id" });
+Cart.belongsTo(Product, { foreignKey: "product_id" });
 
 
 const app = express();
@@ -29,7 +39,7 @@ sequelize.authenticate()
   .catch(err => console.error('DB error:', err));
 
   //creats the users table if not exits and connects to the table
-sequelize.sync()
+sequelize.sync({ alter: true })
   .then(() => console.log("All models synced (tables created)"))
   .catch(err => console.error("Sync error:", err))
 
@@ -219,11 +229,11 @@ app.get(
           ]
         });
 
-        // Convert image buffers to base64 strings
+        // Convert image buffers to base64 strings (use itemObj consistently)
         const itemsWithBase64 = items.map(item => {
           const itemObj = item.toJSON();
-          if (itemObj.Product.image && Buffer.isBuffer(item.Product.image)) {
-            itemObj.Product.image = item.Product.image.toString('base64');
+          if (itemObj.Product && itemObj.Product.image && Buffer.isBuffer(itemObj.Product.image)) {
+            itemObj.Product.image = itemObj.Product.image.toString('base64');
           }
           return itemObj;
         });
@@ -237,7 +247,8 @@ app.get(
       res.json(result);
 
     } catch (err) {
-      res.status(500).json({ error: err.message });
+        console.error('GET /orders error', err);
+        res.status(500).json({ error: err.message, stack: err.stack });
     }
   }
 );
@@ -309,9 +320,26 @@ app.patch(
         });
       }
 
-      await order.update({ status: "dispatched" });
+      // compute randomized delivery ETA between 2 and 10 minutes
+      const minutes = Math.floor(Math.random() * 9) + 2; // 2..10
+      const deliveredAt = new Date(Date.now() + minutes * 60 * 1000);
 
-      res.json({ message: "Order dispatched successfully" });
+      await order.update({ status: "dispatched", delivered_at: deliveredAt });
+
+      // schedule background update to "delivered" after delay
+      setTimeout(async () => {
+        try {
+          const o = await Order.findByPk(order.id);
+          if (o && o.status === "dispatched") {
+            await o.update({ status: "delivered" });
+            console.log(`Order ${o.id} automatically marked delivered at ${new Date().toISOString()}`);
+          }
+        } catch (err) {
+          console.error('auto-deliver error for order', order.id, err);
+        }
+      }, minutes * 60 * 1000);
+
+      res.json({ message: "Order dispatched successfully", eta_minutes: minutes, delivered_at: deliveredAt });
 
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -319,24 +347,200 @@ app.patch(
   }
 );
 
-app.patch(
-  "/orders/:id/cancel",
+// ----- cart endpoints -----
+// get current user cart items
+app.get(
+  "/cart",
   authenticate,
-  authorize("product_manager"),
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const items = await Cart.findAll({
+        where: { user_id: userId },
+        include: [{ model: Product }]
+      });
+
+      const result = items.map(it => {
+        const obj = it.toJSON();
+        if (obj.Product.image && Buffer.isBuffer(obj.Product.image)) {
+          obj.Product.image = obj.Product.image.toString('base64');
+        }
+        return obj;
+      });
+
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// add or increment item
+app.post(
+  "/cart",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      const { product_id, quantity } = req.body;
+      const userId = req.user.id;
+      const product = await Product.findByPk(product_id);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      if (quantity <= 0) return res.status(400).json({ message: "Invalid quantity" });
+      // upsert
+      let cartItem = await Cart.findOne({ where: { user_id: userId, product_id } });
+      if (cartItem) {
+        cartItem.quantity += quantity;
+        await cartItem.save();
+      } else {
+        cartItem = await Cart.create({
+          user_id: userId,
+          product_id,
+          quantity
+        });
+      }
+      res.status(201).json(cartItem);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// update qty of a cart item
+app.put(
+  "/cart/:id",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      const { quantity } = req.body;
+      const cartItem = await Cart.findByPk(req.params.id);
+      if (!cartItem || cartItem.user_id !== req.user.id) {
+        return res.status(404).json({ message: "Cart item not found" });
+      }
+      if (quantity <= 0) return res.status(400).json({ message: "Invalid quantity" });
+      cartItem.quantity = quantity;
+      await cartItem.save();
+      res.json(cartItem);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// remove a single cart item
+app.delete(
+  "/cart/:id",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      const cartItem = await Cart.findByPk(req.params.id);
+      if (!cartItem || cartItem.user_id !== req.user.id) {
+        return res.status(404).json({ message: "Cart item not found" });
+      }
+      await cartItem.destroy();
+      res.json({ message: "Item removed" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// clear entire cart
+app.delete(
+  "/cart",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      await Cart.destroy({ where: { user_id: req.user.id } });
+      res.json({ message: "Cart cleared" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ----- user profile -----
+app.get(
+  "/users/me",
+  authenticate,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.user.id, {
+        attributes: ["id", "email", "role", "created_at"]
+      });
+      res.json(user);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ----- orders -----
+app.get(
+  "/orders/:id",
+  authenticate,
   async (req, res) => {
     try {
       const order = await Order.findByPk(req.params.id);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      if (
+        req.user.role === "customer" &&
+        order.customer_id !== req.user.id
+      ) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
 
+      const items = await OrderItem.findAll({
+        where: { order_id: order.id },
+        include: [{ model: Product, attributes: ["name", "price", "image"] }]
+      });
+
+      const itemsWithBase64 = items.map(item => {
+        const obj = item.toJSON();
+        if (obj.Product.image && Buffer.isBuffer(obj.Product.image)) {
+          obj.Product.image = item.Product.image.toString('base64');
+        }
+        return obj;
+      });
+
+      res.json({
+        ...order.toJSON(),
+        items: itemsWithBase64
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// modify cancel logic: allow customers to cancel their own pending orders
+app.patch(
+  "/orders/:id/cancel",
+  authenticate,
+  async (req, res) => {
+    try {
+      const order = await Order.findByPk(req.params.id);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
       }
 
+      // only pm or owner can cancel pending orders
       if (order.status !== "pending") {
-        return res
-          .status(400)
-          .json({ message: "Order already processed" });
+        return res.status(400).json({ message: "Order already processed" });
       }
 
+      if (
+        req.user.role === "customer" &&
+        order.customer_id !== req.user.id
+      ) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // allow both roles to cancel
       await order.update({ status: "cancelled" });
 
       res.json({ message: "Order cancelled successfully" });
@@ -344,6 +548,95 @@ app.patch(
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ----- reports for dashboard -----
+app.get(
+  "/reports/overview",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      // revenue by month (YYYY-MM)
+      const revenueRows = await Order.findAll({
+        attributes: [
+          [sequelize.fn('DATE_FORMAT', sequelize.col('created_at'), '%Y-%m'), 'month'],
+          [sequelize.fn('SUM', sequelize.col('total_price')), 'revenue']
+        ],
+        group: ['month'],
+        order: [[sequelize.literal('month'), 'ASC']]
+      });
+
+      const revenueByMonth = revenueRows.map(r => ({
+        month: r.get('month'),
+        revenue: parseFloat(r.get('revenue'))
+      }));
+
+      // monthly orders count
+      const ordersRows = await Order.findAll({
+        attributes: [
+          [sequelize.fn('DATE_FORMAT', sequelize.col('created_at'), '%Y-%m'), 'month'],
+          [sequelize.fn('COUNT', sequelize.col('id')), 'orders']
+        ],
+        group: ['month'],
+        order: [[sequelize.literal('month'), 'ASC']]
+      });
+
+      const monthlyOrders = ordersRows.map(r => ({
+        month: r.get('month'),
+        orders: parseInt(r.get('orders'), 10)
+      }));
+
+      // most sold product
+      const soldRows = await OrderItem.findAll({
+        attributes: [
+          'product_id',
+          [sequelize.fn('SUM', sequelize.literal('`OrderItem`.`quantity`')), 'sold']
+        ],
+        group: ['product_id'],
+        order: [[sequelize.literal('sold'), 'DESC']],
+        limit: 1,
+        include: [{ model: Product, attributes: ['name'] }]
+      });
+
+      const mostSoldProduct = soldRows.length
+        ? {
+            product_id: soldRows[0].product_id,
+            name: soldRows[0].Product?.name,
+            sold: parseInt(soldRows[0].get('sold'), 10)
+          }
+        : null;
+
+      // most profitable category
+      const profitRows = await OrderItem.findAll({
+        attributes: [
+          [sequelize.literal('`Product`.`category`'), 'category'],
+          [sequelize.fn('SUM', sequelize.literal('`OrderItem`.`quantity` * `OrderItem`.`price`')), 'profit']
+        ],
+        include: [{ model: Product, attributes: [] }],
+        group: ['Product.category'],
+        order: [[sequelize.literal('profit'), 'DESC']],
+        limit: 1
+      });
+
+      const mostProfitableCategory = profitRows.length
+        ? {
+            category: profitRows[0].get('category'),
+            profit: parseFloat(profitRows[0].get('profit'))
+          }
+        : null;
+
+      res.json({
+        revenueByMonth,
+        monthlyOrders,
+        mostSoldProduct,
+        mostProfitableCategory
+      });
+    } catch (err) {
+      console.error("reports/overview error", err);
+      res.status(500).json({ error: err.message, stack: err.stack });
     }
   }
 );

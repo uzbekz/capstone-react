@@ -127,3 +127,12 @@
     padding: 16px;
   }
 }
+
+.loading-container {
+  text-align: center;
+  padding: 40px 0;
+}
+.loading-gif {
+  width: 64px;
+  height: 64px;
+}

@@ -1,45 +1,105 @@
 import "./Cart.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  getCart,
+  updateCartItem,
+  removeCartItem,
+  clearCartRequest
+} from "../api";
+import loadingGif from "../assets/loading.gif";
 
 function Cart() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
+  const [cart, setCart] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  
-  const [cart, setCart] = useState(() => {
-    return JSON.parse(localStorage.getItem("cart")) || [];
-  });
+  const fetchCart = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getCart();
+      if (data.message && !Array.isArray(data)) {
+        // error response
+        alert(data.message || "Failed to load cart");
+        setCart([]);
+      } else {
+        const items = data.map(item => ({
+          cartItemId: item.id,
+          id: item.product_id,
+          name: item.Product?.name || "",
+          price: parseFloat(item.Product?.price || 0),
+          qty: item.quantity,
+          imageSrc: item.Product?.image
+            ? `data:image/jpeg;base64,${item.Product.image}`
+            : ""
+        }));
+        setCart(items);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error loading cart");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  
   useEffect(() => {
-    if (!token) navigate("/");
-  }, [token, navigate]);
-
-  
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
-  }, [cart]);
+    if (!token) {
+      navigate("/");
+    } else {
+      fetchCart();
+    }
+  }, [token, navigate, fetchCart]);
 
   
   const totalPrice = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   }, [cart]);
 
-  function updateQty(index, qty) {
-    setCart((prev) =>
-      prev.map((item, i) =>
-        i === index ? { ...item, qty: Number(qty) } : item,
-      ),
-    );
+  async function updateQty(index, qty) {
+    const item = cart[index];
+    try {
+      const data = await updateCartItem(item.cartItemId, Number(qty));
+      if (data.message && !data.id) {
+        alert(data.message || "Could not update quantity");
+      } else {
+        setCart((prev) =>
+          prev.map((it, i) =>
+            i === index ? { ...it, qty: Number(qty) } : it,
+          ),
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error");
+    }
   }
 
-  function removeItem(index) {
-    setCart((prev) => prev.filter((_, i) => i !== index));
+  async function removeItem(index) {
+    const item = cart[index];
+    try {
+      const data = await removeCartItem(item.cartItemId);
+      if (data.message && !data.id) {
+        // removal success returns {message:...} so not an error
+      }
+      setCart((prev) => prev.filter((_, i) => i !== index));
+    } catch (err) {
+      console.error(err);
+      alert("Network error");
+    }
   }
 
-  function clearCart() {
-    localStorage.removeItem("cart");
+  async function clearCart() {
+    try {
+      const data = await clearCartRequest();
+      if (data.message && data.message.includes("Unable")) {
+        alert(data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error");
+    }
     setCart([]);
   }
 
@@ -67,8 +127,7 @@ function Cart() {
 
     if (res.ok) {
       alert("Order placed successfully!");
-      localStorage.removeItem("cart");
-      setCart([]);
+      await clearCart();
       navigate("/customerOrders");
     } else {
       alert(data.message);
@@ -79,6 +138,12 @@ function Cart() {
     <>
       <div style={{ padding: "24px" }}>
         <h2>🛒 Your Cart</h2>
+
+        {loading && (
+          <div className="loading-container">
+            <img src={loadingGif} alt="Loading cart" className="loading-gif" />
+          </div>
+        )}
 
         <div className="cart-container">
           <div className="cart-items">
@@ -92,7 +157,7 @@ function Cart() {
             )}
 
             {cart.map((item, index) => (
-              <div key={item.id} className="item">
+              <div key={item.cartItemId || item.id} className="item">
                 {item.imageSrc && (
                   <div className="item-image">
                     <img src={item.imageSrc} alt={item.name} />

@@ -1,6 +1,8 @@
 import "./CustomerOrders.css";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import loadingGif from "../assets/loading.gif";
+import { cancelOrderRequest } from "../api";
 
 function CustomerOrders() {
   const navigate = useNavigate();
@@ -8,6 +10,7 @@ function CustomerOrders() {
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   
   useEffect(() => {
@@ -15,33 +18,61 @@ function CustomerOrders() {
   }, [token, navigate]);
 
   
-  useEffect(() => {
-    async function loadOrders() {
-      try {
-        const res = await fetch("http://localhost:5000/orders", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
+  // load orders and handle errors
+  async function loadOrders() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("http://localhost:5000/orders", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
 
-        const data = await res.json();
-        setOrders(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data && data.error ? data.error : 'Server error';
+        console.error('GET /orders failed', data);
+        setError(msg);
+        setOrders([]);
+        return;
       }
-    }
 
+      if (Array.isArray(data)) {
+        setOrders(data);
+      } else {
+        console.error('Unexpected /orders response', data);
+        setError('Unexpected server response');
+        setOrders([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Network error');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!token) navigate("/");
+  }, [token, navigate]);
+
+  useEffect(() => {
     loadOrders();
   }, [token]);
 
   return (
     <div style={{ padding: "24px" }}>
       <h2>📦 My Orders</h2>
+      <Link to="/profile">👤 Profile</Link>
 
       <div className="orders-container">
-        {loading && <p style={{ textAlign: "center", color: "var(--muted)" }}>Loading orders...</p>}
+        {loading && (
+          <div className="loading-container">
+            <img src={loadingGif} alt="Loading orders" className="loading-gif" />
+          </div>
+        )}
 
         {!loading && orders.length === 0 && (
           <div className="empty-state">
@@ -52,8 +83,35 @@ function CustomerOrders() {
           </div>
         )}
 
+        {!loading && error && (
+          <div className="error-card">
+            <p><strong>Could not load orders</strong></p>
+            <p style={{ color: 'var(--muted)', marginTop: 6 }}>{error}</p>
+            <div style={{ marginTop: 12 }}>
+              <button className="retry-btn" onClick={loadOrders}>Retry</button>
+            </div>
+          </div>
+        )}
+
         {!loading && orders.map(order => (
           <div key={order.id} className="order">
+            <div className="order-actions" style={{ textAlign: "right", marginBottom: "8px" }}>
+              <Link to={`/order/${order.id}`} className="view-link" style={{ marginRight: "12px" }}>View details</Link>
+              {order.status === "pending" && (
+                <button
+                  style={{ color: "var(--danger)", border: "none", background: "none", cursor: "pointer" }}
+                  onClick={async () => {
+                    if (!window.confirm("Cancel this order?")) return;
+                    const data = await cancelOrderRequest(order.id);
+                    alert(data.message);
+                    setOrders(prev => prev.filter(o => o.id !== order.id));
+                    setOrders(prev => prev.filter(o => o.id !== order.id));
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
             <div className="order-header">
               <div>
                 <h3 style={{ margin: "0 0 4px 0" }}>Order #{order.id}</h3>

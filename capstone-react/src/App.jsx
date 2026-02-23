@@ -10,6 +10,8 @@ import AdminOrders from './pages/AdminOrders.jsx'
 import CustomerProducts from './pages/CustomerProducts.jsx'
 import Cart from './pages/Cart.jsx'
 import CustomerOrders from './pages/CustomerOrders.jsx'
+import CustomerProfile from './pages/CustomerProfile.jsx'
+import OrderDetails from './pages/OrderDetails.jsx'
 
 function App() {
   const [productId, setProductId] = useState(null)
@@ -36,6 +38,8 @@ function App() {
         <Route path='/customerProducts' element={<CustomerProducts products={products} setProducts={setProducts} categories={categories}/>}/>
         <Route path="/cart" element={<Cart />}/>
         <Route path="/customerOrders" element={<CustomerOrders />}/>
+        <Route path="/order/:id" element={<OrderDetails />}/>
+        <Route path="/profile" element={<CustomerProfile />}/>
       </Routes>
     </>
   )

@@ -11,6 +11,8 @@ Admin (Product Manager)
 - Upload and manage product images
 - Inventory management with low-stock warnings
 - Dashboard with analytics (charts)
+  * category breakdown, stock distribution, top stocked products
+  * **new:** revenue over time, monthly sales, best-selling product and most profitable category
 - View all customer orders
 - Dispatch or cancel pending orders
 - View customer ID and product images per order
@@ -18,7 +20,7 @@ Customer
 - Browse products with images
 - Search, filter, and sort products
 - Add items to cart with quantity limits
-- Persistent cart using localStorage
+- Cart is now stored server-side (MySQL) instead of localStorage
 - Place orders
 - View order history with product details
 Tech Stack

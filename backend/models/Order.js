@@ -7,11 +7,12 @@ const Order = sequelize.define("Order", {
   customer_id: { type: DataTypes.INTEGER, allowNull: false },
 
   status: {
-    type: DataTypes.ENUM("pending", "dispatched", "cancelled"),
+    type: DataTypes.ENUM("pending", "dispatched", "delivered", "cancelled"),
     defaultValue: "pending"
   },
 
-  total_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false }
+  total_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+  delivered_at: { type: DataTypes.DATE, allowNull: true }
 
 }, {
   tableName: "orders",

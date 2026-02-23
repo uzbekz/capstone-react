@@ -1,7 +1,8 @@
 import "./CustomerProducts.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { getProducts } from "../api";
+import { getProducts, addToCartRequest } from "../api";
+import loadingGif from "../assets/loading.gif";
 
 function CustomerProducts({ products, setProducts, categories }) {
   const navigate = useNavigate();
@@ -70,25 +71,24 @@ function CustomerProducts({ products, setProducts, categories }) {
   }, [processedProducts, search, category, sort]);
 
   
-  function addToCart(product, qty) {
-    let cart = JSON.parse(localStorage.getItem("cart")) || [];
-
-    const existing = cart.find(item => item.id === product.id);
-
-    if (existing) {
-      existing.qty += qty;
-    } else {
-      cart.push({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        qty,
-        imageSrc: product.imageSrc
-      });
+  async function addToCart(product, qty) {
+    if (!token) {
+      alert("Please login to add items to your cart");
+      return;
     }
 
-    localStorage.setItem("cart", JSON.stringify(cart));
-    alert("Added to cart!");
+    try {
+      const data = await addToCartRequest(product.id, qty);
+      // addToCartRequest returns the JSON payload regardless of success
+      if (data.id) {
+        alert("Added to cart!");
+      } else {
+        alert(data.message || "Unable to add to cart");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error while adding to cart");
+    }
   }
 
   return (
@@ -118,10 +118,11 @@ function CustomerProducts({ products, setProducts, categories }) {
 
         <Link to="/cart">🛒 Cart</Link>
         <Link to="/customerOrders">Order History</Link>
+        <Link to="/profile">Profile</Link>
 
         <button
           onClick={() => {
-            localStorage.clear();
+            localStorage.removeItem("token");
             navigate("/");
           }}
         >
@@ -131,7 +132,15 @@ function CustomerProducts({ products, setProducts, categories }) {
 
       
       <div className="product-array">
-        {loading && <h3>Loading products...</h3>}
+        {loading && (
+          <div className="loading-container">
+            <img
+              src={loadingGif}
+              alt="Loading products"
+              className="loading-gif"
+            />
+          </div>
+        )}
 
         {!loading && filteredProducts.length === 0 && (
           <h3>No products found.</h3>

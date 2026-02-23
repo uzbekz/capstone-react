@@ -57,3 +57,77 @@ export async function getFilteredProducts({ search, category, sort }) {
   const res = await fetch(`http://localhost:5000/products?${params}`);
   return await res.json();
 }
+
+// ---------------- cart helpers ----------------
+export async function getCart() {
+  const res = await fetch(`${BASE_URL}/cart`, {
+    headers: { ...getAuthHeader() }
+  });
+  return await res.json();
+}
+
+export async function addToCartRequest(product_id, quantity) {
+  const res = await fetch(`${BASE_URL}/cart`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    body: JSON.stringify({ product_id, quantity })
+  });
+  return await res.json();
+}
+
+export async function updateCartItem(id, quantity) {
+  const res = await fetch(`${BASE_URL}/cart/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    body: JSON.stringify({ quantity })
+  });
+  return await res.json();
+}
+
+export async function removeCartItem(id) {
+  const res = await fetch(`${BASE_URL}/cart/${id}`, {
+    method: "DELETE",
+    headers: { ...getAuthHeader() }
+  });
+  return await res.json();
+}
+
+export async function clearCartRequest() {
+  const res = await fetch(`${BASE_URL}/cart`, {
+    method: "DELETE",
+    headers: { ...getAuthHeader() }
+  });
+  return await res.json();
+}
+
+// ----- dashboard/report endpoints for product managers -----
+export async function getDashboardReports() {
+  const res = await fetch(`${BASE_URL}/reports/overview`, {
+    headers: { ...getAuthHeader() }
+  });
+  return await res.json();
+}
+
+// profile
+export async function getProfile() {
+  const res = await fetch(`${BASE_URL}/users/me`, {
+    headers: { ...getAuthHeader() }
+  });
+  return await res.json();
+}
+
+// orders
+export async function getOrderDetails(orderId) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}`, {
+    headers: { ...getAuthHeader() }
+  });
+  return await res.json();
+}
+
+export async function cancelOrderRequest(orderId) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/cancel`, {
+    method: "PATCH",
+    headers: { ...getAuthHeader() }
+  });
+  return await res.json();
+}

@@ -2,6 +2,7 @@ import "./MainPage.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { getProducts } from "../api.js";
+import loadingGif from "../assets/loading.gif";
 
 function MainPage({ setProductId, categories, products, setProducts }) {
   const navigate = useNavigate();
@@ -120,7 +121,15 @@ function MainPage({ setProductId, categories, products, setProducts }) {
       </div>
 
       <div className="product-array">
-        {loading && <h3>Loading products...</h3>}
+        {loading && (
+        <div className="loading-container">
+          <img
+            src={loadingGif}
+            alt="Loading products"
+            className="loading-gif"
+          />
+        </div>
+      )}
 
         {!loading && filteredProducts.length === 0 && (
           <h3>No products found.</h3>

@@ -38,6 +38,20 @@
 
 .order {
   background: var(--card-bg);
+
+}
+
+.loading-container {
+  text-align: center;
+  padding: 40px 0;
+}
+.loading-gif {
+  width: 64px;
+  height: 64px;
+}
+
+.order {
+  background: var(--card-bg);
   border: 1px solid rgba(226, 232, 240, 0.6);
   border-radius: 12px;
   padding: 20px;

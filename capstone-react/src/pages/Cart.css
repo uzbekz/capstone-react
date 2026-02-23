@@ -16,6 +16,15 @@
   box-sizing: border-box;
 }
 
+.loading-container {
+  text-align: center;
+  padding: 40px 0;
+}
+.loading-gif {
+  width: 64px;
+  height: 64px;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg);

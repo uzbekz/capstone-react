@@ -16,6 +16,15 @@
   box-sizing: border-box;
 }
 
+.loading-container {
+  text-align: center;
+  padding: 40px 0;
+}
+.loading-gif {
+  width: 64px;
+  height: 64px;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg);
@@ -104,6 +113,11 @@ h2 {
 .status-cancelled {
   background: rgba(220, 38, 38, 0.1);
   color: #dc2626;
+}
+
+.status-delivered {
+  background: rgba(37, 99, 235, 0.08);
+  color: #1e3a8a;
 }
 
 .order-items-grid {
@@ -201,6 +215,54 @@ h2 {
   background: rgba(37, 99, 235, 0.1);
   transform: translateX(-4px);
 }
+
+.view-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.view-link:hover {
+  background: rgba(37,99,235,0.06);
+  transform: translateY(-2px);
+}
+
+.back-btn {
+  background: #eef2ff;
+  color: var(--accent);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.eta {
+  color: #2563eb;
+  font-weight: 600;
+  margin: 8px 0;
+}
+
+.error-card {
+  background: #fff5f5;
+  border: 1px solid rgba(220,38,38,0.12);
+  color: #7f1d1d;
+  padding: 18px;
+  border-radius: 10px;
+  text-align: center;
+  grid-column: 1 / -1;
+}
+.retry-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.retry-btn:hover { filter: brightness(0.95); }
 
 @media (max-width: 768px) {
   .orders-container {

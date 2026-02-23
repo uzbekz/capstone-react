@@ -1,6 +1,7 @@
 import "./AdminOrders.css";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import loadingGif from "../assets/loading.gif";
 
 function AdminOrders() {
   const navigate = useNavigate();
@@ -71,7 +72,11 @@ function AdminOrders() {
     <div className="admin-orders">
       <h1>Manage Orders</h1>
 
-      {loading && <p className="loading">Loading orders...</p>}
+      {loading && (
+        <div className="loading-container">
+          <img src={loadingGif} alt="Loading orders" className="loading-gif" />
+        </div>
+      )}
 
       {!loading && orders.length === 0 && <p className="empty">No orders yet.</p>}
 

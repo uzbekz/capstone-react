@@ -95,22 +95,21 @@ function CustomerOrders() {
 
         {!loading && orders.map(order => (
           <div key={order.id} className="order">
-            <div className="order-actions" style={{ textAlign: "right", marginBottom: "8px" }}>
-              <Link to={`/order/${order.id}`} className="view-link" style={{ marginRight: "12px" }}>View details</Link>
+            <div className="order-actions">
               {order.status === "pending" && (
                 <button
-                  style={{ color: "var(--danger)", border: "none", background: "none", cursor: "pointer" }}
+                  className="cancel-order-btn"
                   onClick={async () => {
                     if (!window.confirm("Cancel this order?")) return;
                     const data = await cancelOrderRequest(order.id);
                     alert(data.message);
-                    setOrders(prev => prev.filter(o => o.id !== order.id));
                     setOrders(prev => prev.filter(o => o.id !== order.id));
                   }}
                 >
                   Cancel
                 </button>
               )}
+              <Link to={`/order/${order.id}`} className="view-link">View details</Link>
             </div>
             <div className="order-header">
               <div>

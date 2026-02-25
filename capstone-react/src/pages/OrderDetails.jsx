@@ -25,21 +25,12 @@ function OrderDetails() {
 
     let interval = null;
     if (order.status === "dispatched") {
-      // compute remaining
-      if (order.delivered_at) {
-        const rem = new Date(order.delivered_at).getTime() - Date.now();
-        setTimeout(() => setRemaining(rem > 0 ? rem : 0), 0);
-      }
-
       interval = setInterval(async () => {
         const updated = await getOrderDetails(id);
         setOrder(updated);
         if (updated.status !== "dispatched") {
           clearInterval(interval);
           setRemaining(null);
-        } else if (updated.delivered_at) {
-          const rem2 = new Date(updated.delivered_at).getTime() - Date.now();
-          setRemaining(rem2 > 0 ? rem2 : 0);
         }
       }, 15000);
     }
@@ -48,6 +39,25 @@ function OrderDetails() {
       if (interval) clearInterval(interval);
     };
   }, [order, id]);
+
+  // live ETA countdown (updates every second)
+  useEffect(() => {
+    if (!order || order.status !== "dispatched" || !order.delivered_at) {
+      setRemaining(null);
+      return;
+    }
+
+    const targetTs = new Date(order.delivered_at).getTime();
+    const updateRemaining = () => {
+      const ms = targetTs - Date.now();
+      setRemaining(ms > 0 ? ms : 0);
+    };
+
+    updateRemaining();
+    const timer = setInterval(updateRemaining, 1000);
+
+    return () => clearInterval(timer);
+  }, [order]);
 
   async function cancel() {
     if (!window.confirm("Cancel this order?")) return;
@@ -111,10 +121,10 @@ function OrderDetails() {
         ))}
       </div>
       <p className="total">Total: ${Number(order.total_price).toFixed(2)}</p>
-      <div style={{ marginTop: 16 }}>
-        <button className="back-btn" onClick={() => navigate('/customerOrders')}>⬅ Back to Orders</button>
+      <div className="details-actions">
+        <button className="back-btn" onClick={() => navigate("/customerOrders")}>{"\u2190"} Back to Orders</button>
         {order.status === "pending" && (
-          <button className="btn-cancel" onClick={cancel} style={{ marginLeft: 12 }}>Cancel Order</button>
+          <button className="btn-cancel" onClick={cancel}>Cancel Order</button>
         )}
       </div>
     </div>

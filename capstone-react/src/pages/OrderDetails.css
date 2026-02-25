@@ -50,6 +50,13 @@
   font-weight: 600;
 }
 
+.details-actions {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .btn-cancel {
   background: #dc2626;
   color: #fff;
@@ -57,21 +64,29 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  margin-top: 24px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .btn-cancel:hover {
   background: #b91c1c;
 }
 
-.back-btn {
+.order-details .back-btn {
   background: #eef2ff;
   color: var(--accent);
   border: none;
-  padding: 8px 12px;
+  padding: 10px 16px;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
+  line-height: 1;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.order-details .back-btn:hover {
+  background: #2563eb;
+  color: #fff;
 }
 
 .eta {

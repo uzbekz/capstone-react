@@ -22,6 +22,12 @@ const User = sequelize.define("User", {
   role: {
     type: DataTypes.ENUM("customer", "product_manager"),
     defaultValue: "customer"
+  },
+
+  admin_status: {
+    type: DataTypes.ENUM("approved", "pending", "rejected"),
+    allowNull: false,
+    defaultValue: "approved"
   }
 
 }, {

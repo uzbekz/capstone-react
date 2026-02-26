@@ -43,29 +43,41 @@ function AdminOrders() {
   }
 
   async function dispatchOrder(id) {
-    const res = await fetch(`http://localhost:5000/orders/${id}/dispatch`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+      setLoading(true);
+      const res = await fetch(`http://localhost:5000/orders/${id}/dispatch`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    const data = await res.json();
-    alert(data.message);
-    loadOrders();
+      const data = await res.json();
+      console.info(data.message);
+      await loadOrders();
+    } catch (err) {
+      console.error(err.message || "Failed to dispatch order");
+      setLoading(false);
+    }
   }
 
   async function cancelOrder(id) {
-    const res = await fetch(`http://localhost:5000/orders/${id}/cancel`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+      setLoading(true);
+      const res = await fetch(`http://localhost:5000/orders/${id}/cancel`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    const data = await res.json();
-    alert(data.message);
-    loadOrders();
+      const data = await res.json();
+      console.info(data.message);
+      await loadOrders();
+    } catch (err) {
+      console.error(err.message || "Failed to cancel order");
+      setLoading(false);
+    }
   }
 
   return (
@@ -105,7 +117,7 @@ function AdminOrders() {
                     <div className="item-details">
                       <h4>{item.Product.name}</h4>
                       <p className="qty">Qty: <strong>{item.quantity}</strong></p>
-                      <p className="price">${item.price} each</p>
+                      <p className="price">₹{item.price} each</p>
                     </div>
                   </div>
                 ))}
@@ -113,7 +125,7 @@ function AdminOrders() {
 
               <div className="order-footer">
                 <div className="order-info">
-                  <p><span>Total:</span> <strong>${order.total_price}</strong></p>
+                  <p><span>Total:</span> <strong>₹{order.total_price}</strong></p>
                   <p><span>Date:</span> <strong>{new Date(order.createdAt || order.created_at).toLocaleDateString()}</strong></p>
                 </div>
 

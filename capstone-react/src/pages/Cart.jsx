@@ -14,6 +14,7 @@ function Cart() {
   const token = localStorage.getItem("token");
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchCart = useCallback(async () => {
     try {
@@ -21,7 +22,7 @@ function Cart() {
       const data = await getCart();
       if (data.message && !Array.isArray(data)) {
         // error response
-        alert(data.message || "Failed to load cart");
+        console.error(data.message || "Failed to load cart");
         setCart([]);
       } else {
         const items = data.map(item => ({
@@ -38,7 +39,7 @@ function Cart() {
       }
     } catch (err) {
       console.error(err);
-      alert("Network error loading cart");
+      console.error("Network error loading cart");
     } finally {
       setLoading(false);
     }
@@ -60,9 +61,10 @@ function Cart() {
   async function updateQty(index, qty) {
     const item = cart[index];
     try {
+      setActionLoading(true);
       const data = await updateCartItem(item.cartItemId, Number(qty));
       if (data.message && !data.id) {
-        alert(data.message || "Could not update quantity");
+        console.error(data.message || "Could not update quantity");
       } else {
         setCart((prev) =>
           prev.map((it, i) =>
@@ -72,13 +74,16 @@ function Cart() {
       }
     } catch (err) {
       console.error(err);
-      alert("Network error");
+      console.error("Network error");
+    } finally {
+      setActionLoading(false);
     }
   }
 
   async function removeItem(index) {
     const item = cart[index];
     try {
+      setActionLoading(true);
       const data = await removeCartItem(item.cartItemId);
       if (data.message && !data.id) {
         // removal success returns {message:...} so not an error
@@ -86,26 +91,31 @@ function Cart() {
       setCart((prev) => prev.filter((_, i) => i !== index));
     } catch (err) {
       console.error(err);
-      alert("Network error");
+      console.error("Network error");
+    } finally {
+      setActionLoading(false);
     }
   }
 
   async function clearCart() {
     try {
+      setActionLoading(true);
       const data = await clearCartRequest();
       if (data.message && data.message.includes("Unable")) {
-        alert(data.message);
+        console.error(data.message);
       }
     } catch (err) {
       console.error(err);
-      alert("Network error");
+      console.error("Network error");
+    } finally {
+      setActionLoading(false);
     }
     setCart([]);
   }
 
   async function checkout() {
     if (cart.length === 0) {
-      alert("Cart is empty!");
+      console.warn("Cart is empty!");
       return;
     }
 
@@ -114,23 +124,28 @@ function Cart() {
       quantity: item.qty,
     }));
 
-    const res = await fetch("http://localhost:5000/orders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ items }),
-    });
+    try {
+      setActionLoading(true);
+      const res = await fetch("http://localhost:5000/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ items }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (res.ok) {
-      alert("Order placed successfully!");
-      await clearCart();
-      navigate("/customerOrders");
-    } else {
-      alert(data.message);
+      if (res.ok) {
+        console.info("Order placed successfully!");
+        await clearCart();
+        navigate("/customerOrders");
+      } else {
+        console.error(data.message);
+      }
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -142,6 +157,12 @@ function Cart() {
         {loading && (
           <div className="loading-container">
             <img src={loadingGif} alt="Loading cart" className="loading-gif" />
+          </div>
+        )}
+
+        {actionLoading && (
+          <div className="loading-container">
+            <img src={loadingGif} alt="Processing cart action" className="loading-gif" />
           </div>
         )}
 
@@ -166,7 +187,7 @@ function Cart() {
 
                 <div className="item-details">
                   <p className="item-name">{item.name}</p>
-                  <p className="item-price">${Number(item.price).toFixed(2)}</p>
+                  <p className="item-price">₹{Number(item.price).toFixed(2)}</p>
                   <div className="item-qty-control">
                     <label htmlFor={`qty-${item.id}`} style={{ fontSize: "13px", color: "var(--muted)" }}>
                       Qty:
@@ -179,7 +200,7 @@ function Cart() {
                       onChange={(e) => updateQty(index, e.target.value)}
                     />
                     <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                      = ${(Number(item.price) * item.qty).toFixed(2)}
+                      = ₹{(Number(item.price) * item.qty).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -205,13 +226,13 @@ function Cart() {
                 </div>
                 <div className="summary-row">
                   <span className="summary-label">Subtotal:</span>
-                  <span className="summary-value">${totalPrice.toFixed(2)}</span>
+                  <span className="summary-value">₹{totalPrice.toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="summary-total">
                 <span>Total</span>
-                <span className="summary-value">${totalPrice.toFixed(2)}</span>
+                <span className="summary-value">₹{totalPrice.toFixed(2)}</span>
               </div>
 
               <button className="btn-checkout" onClick={checkout}>

@@ -12,6 +12,7 @@ import Cart from './pages/Cart.jsx'
 import CustomerOrders from './pages/CustomerOrders.jsx'
 import CustomerProfile from './pages/CustomerProfile.jsx'
 import OrderDetails from './pages/OrderDetails.jsx'
+import AdminApprovals from './pages/AdminApprovals.jsx'
 
 function App() {
   const [productId, setProductId] = useState(null)
@@ -40,6 +41,7 @@ function App() {
         <Route path="/customerOrders" element={<CustomerOrders />}/>
         <Route path="/order/:id" element={<OrderDetails />}/>
         <Route path="/profile" element={<CustomerProfile />}/>
+        <Route path="/adminApprovals" element={<AdminApprovals />}/>
       </Routes>
     </>
   )

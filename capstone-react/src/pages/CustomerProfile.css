@@ -15,3 +15,17 @@
 .profile-card strong {
   color: #334155;
 }
+
+.profile-loading {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-loading-gif {
+  width: 64px;
+  height: 64px;
+}

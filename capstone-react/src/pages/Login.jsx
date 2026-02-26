@@ -2,12 +2,17 @@ import "./Login.css";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import loadingGif from "../assets/loading.gif";
+
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+
   async function handleSubmit(event) {
     event.preventDefault();
+    setIsSubmitting(true);
 
     try {
       const res = await fetch("http://localhost:5000/auth/login", {
@@ -21,8 +26,7 @@ function Login() {
       if (res.ok) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("role", data.role);
-
-        alert("Login successful!");
+        console.info("Login successful");
 
         if (data.role === "customer") {
           navigate("/customerProducts");
@@ -30,41 +34,62 @@ function Login() {
           navigate("/mainPage");
         }
       } else {
-        alert(data.message);
+        const message = data?.message || "Login failed";
+        const isMissingAccount = message.toLowerCase().includes("user not found");
+        const isRejectedAdmin = message.toLowerCase().includes("rejected");
+
+        if (isMissingAccount || isRejectedAdmin) {
+          alert(message);
+        } else {
+          alert("Login failed. Please check your credentials and try again.");
+          console.error(message);
+        }
+        setIsSubmitting(false);
       }
     } catch (err) {
-      alert("Network error :" + err.message);
+      console.error("Network error :" + err.message);
+      setIsSubmitting(false);
     }
   }
+
   return (
     <div className="login-page">
       <div className="box-login">
-        <h2>Login</h2>
-        <form id="loginForm" onSubmit={handleSubmit}>
-          <input
-            type="email"
-            id="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+        {isSubmitting ? (
+          <div className="auth-loading">
+            <img src={loadingGif} alt="Logging in" className="auth-loading-gif" />
+            <p>Logging in...</p>
+          </div>
+        ) : (
+          <>
+            <h2>Login</h2>
+            <form id="loginForm" onSubmit={handleSubmit}>
+              <input
+                type="email"
+                id="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
 
-          <input
-            type="password"
-            id="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+              <input
+                type="password"
+                id="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
 
-          <button type="submit">Login</button>
-        </form>
+              <button type="submit">Login</button>
+            </form>
 
-        <p>
-          New user? <Link to="/register">register</Link>
-        </p>
+            <p>
+              New user? <Link to="/register">register</Link>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ function CustomerProducts({ products, setProducts, categories }) {
   const token = localStorage.getItem("token");
 
   const [loading, setLoading] = useState(true);
+  const [addingToCartId, setAddingToCartId] = useState(null);
 
   
   const [search, setSearch] = useState("");
@@ -73,21 +74,24 @@ function CustomerProducts({ products, setProducts, categories }) {
   
   async function addToCart(product, qty) {
     if (!token) {
-      alert("Please login to add items to your cart");
+      console.warn("Please login to add items to your cart");
       return;
     }
 
     try {
+      setAddingToCartId(product.id);
       const data = await addToCartRequest(product.id, qty);
       // addToCartRequest returns the JSON payload regardless of success
       if (data.id) {
-        alert("Added to cart!");
+        console.info("Added to cart!");
       } else {
-        alert(data.message || "Unable to add to cart");
+        console.error(data.message || "Unable to add to cart");
       }
     } catch (err) {
       console.error(err);
-      alert("Network error while adding to cart");
+      console.error("Network error while adding to cart");
+    } finally {
+      setAddingToCartId(null);
     }
   }
 
@@ -142,6 +146,12 @@ function CustomerProducts({ products, setProducts, categories }) {
           </div>
         )}
 
+        {addingToCartId !== null && (
+          <div className="loading-container">
+            <img src={loadingGif} alt="Adding to cart" className="loading-gif" />
+          </div>
+        )}
+
         {!loading && filteredProducts.length === 0 && (
           <h3>No products found.</h3>
         )}
@@ -169,7 +179,7 @@ function CustomerProducts({ products, setProducts, categories }) {
                 <p><b>{product.name}</b></p>
                 <p>{product.description}</p>
                 <p>Category: {product.category}</p>
-                <p>Price: ${product.price}</p>
+                <p>Price: ₹{product.price}</p>
                 <p>Stock: {product.quantity}</p>
 
                 <input
@@ -187,8 +197,9 @@ function CustomerProducts({ products, setProducts, categories }) {
                     );
                     addToCart(product, qty);
                   }}
+                  disabled={addingToCartId === product.id}
                 >
-                  Add to Cart
+                  {addingToCartId === product.id ? "Adding..." : "Add to Cart"}
                 </button>
               </div>
             );

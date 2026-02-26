@@ -1,6 +1,7 @@
 import "./CustomerProfile.css";
 import { useEffect, useState } from "react";
 import { getProfile } from "../api";
+import loadingGif from "../assets/loading.gif";
 
 function CustomerProfile() {
   const [profile, setProfile] = useState(null);
@@ -18,7 +19,10 @@ function CustomerProfile() {
   if (loading) {
     return (
       <div className="profile-container">
-        <p>Loading profile...</p>
+        <div className="profile-loading">
+          <img src={loadingGif} alt="Loading profile" className="profile-loading-gif" />
+          <p>Loading profile...</p>
+        </div>
       </div>
     );
   }

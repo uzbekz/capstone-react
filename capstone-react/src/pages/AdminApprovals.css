@@ -1,0 +1,103 @@
+.admin-approvals-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 36px 16px;
+  background: #f5f7fb;
+}
+
+.admin-approvals-card {
+  width: 100%;
+  max-width: 900px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  padding: 20px;
+}
+
+.admin-approvals-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.admin-approvals-header h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.admin-approvals-header a {
+  text-decoration: none;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.requests-list {
+  display: grid;
+  gap: 10px;
+}
+
+.request-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.request-email {
+  margin: 0;
+  font-weight: 700;
+  color: #111827;
+}
+
+.request-meta {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.request-actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  background: #16a34a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.request-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.request-actions .reject-btn {
+  background: #dc2626;
+}
+
+.empty-state {
+  color: #6b7280;
+}
+
+.approvals-loading {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.approvals-loading-gif {
+  width: 64px;
+  height: 64px;
+}

@@ -94,3 +94,17 @@
   font-weight: 600;
   margin: 8px 0;
 }
+
+.order-loading {
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.order-loading-gif {
+  width: 64px;
+  height: 64px;
+}

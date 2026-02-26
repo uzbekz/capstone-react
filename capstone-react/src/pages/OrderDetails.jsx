@@ -2,12 +2,14 @@ import "./OrderDetails.css";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getOrderDetails, cancelOrderRequest } from "../api";
+import loadingGif from "../assets/loading.gif";
 
 function OrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [remaining, setRemaining] = useState(null);
 
   useEffect(() => {
@@ -61,9 +63,14 @@ function OrderDetails() {
 
   async function cancel() {
     if (!window.confirm("Cancel this order?")) return;
-    const data = await cancelOrderRequest(id);
-    alert(data.message);
-    navigate("/customerOrders");
+    try {
+      setActionLoading(true);
+      const data = await cancelOrderRequest(id);
+      console.info(data.message);
+      navigate("/customerOrders");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   const renderTimeline = () => {
@@ -91,7 +98,21 @@ function OrderDetails() {
   if (loading) {
     return (
       <div className="order-details">
-        <p>Loading order...</p>
+        <div className="order-loading">
+          <img src={loadingGif} alt="Loading order" className="order-loading-gif" />
+          <p>Loading order...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (actionLoading) {
+    return (
+      <div className="order-details">
+        <div className="order-loading">
+          <img src={loadingGif} alt="Updating order" className="order-loading-gif" />
+          <p>Updating order...</p>
+        </div>
       </div>
     );
   }
@@ -116,11 +137,11 @@ function OrderDetails() {
         {order.items.map(item => (
           <div key={item.id} className="item-row">
             <p>{item.Product.name} x {item.quantity}</p>
-            <p>${Number(item.price).toFixed(2)}</p>
+            <p>₹{Number(item.price).toFixed(2)}</p>
           </div>
         ))}
       </div>
-      <p className="total">Total: ${Number(order.total_price).toFixed(2)}</p>
+      <p className="total">Total: ₹{Number(order.total_price).toFixed(2)}</p>
       <div className="details-actions">
         <button className="back-btn" onClick={() => navigate("/customerOrders")}>{"\u2190"} Back to Orders</button>
         {order.status === "pending" && (

@@ -172,3 +172,17 @@ canvas.pie-chart {
 @media (max-width: 520px) {
   .stats { grid-template-columns: 1fr; }
 }
+
+.dashboard-loading {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-loading-gif {
+  width: 68px;
+  height: 68px;
+}

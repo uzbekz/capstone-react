@@ -5,14 +5,28 @@ function getAuthHeader() {
   return token ? { "Authorization": `Bearer ${token}` } : {};
 }
 
+async function handleResponse(res) {
+  const contentType = res.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await res.json()
+    : null;
+
+  if (!res.ok) {
+    const message = data?.error || data?.message || `Request failed (${res.status})`;
+    throw new Error(message);
+  }
+
+  return data;
+}
+
 export async function getProducts() {
   const res = await fetch(`${BASE_URL}/products`);
-  return await res.json();
+  return await handleResponse(res);
 }
 
 export async function getProductById(id) {
   const res = await fetch(`${BASE_URL}/products/${id}`);
-  return await res.json();
+  return await handleResponse(res);
 }
 
 
@@ -25,26 +39,30 @@ export async function addProduct(formData) {
     body: formData
   });
 
-  return await res.json();
+  return await handleResponse(res);
 }
 
 export async function deleteProduct(id) {
-  await fetch(`${BASE_URL}/products/${id}`, {
+  const res = await fetch(`${BASE_URL}/products/${id}`, {
     method: "DELETE",
     headers: {
       ...getAuthHeader()
     }
   });
+  return await handleResponse(res);
 }
 
-export async function updateProduct(id, formData) {
-  await fetch(`${BASE_URL}/products/${id}`, {
+export async function updateProduct(id, payload) {
+  const isFormData = payload instanceof FormData;
+  const res = await fetch(`${BASE_URL}/products/${id}`, {
     method: "PUT",
     headers: {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...getAuthHeader()
     },
-    body: formData
+    body: isFormData ? payload : JSON.stringify(payload)
   });
+  return await handleResponse(res);
 }
 
 export async function getFilteredProducts({ search, category, sort }) {
@@ -113,7 +131,7 @@ export async function getProfile() {
   const res = await fetch(`${BASE_URL}/users/me`, {
     headers: { ...getAuthHeader() }
   });
-  return await res.json();
+  return await handleResponse(res);
 }
 
 // orders
@@ -130,4 +148,21 @@ export async function cancelOrderRequest(orderId) {
     headers: { ...getAuthHeader() }
   });
   return await res.json();
+}
+
+// ----- primary admin approval helpers -----
+export async function getPendingAdminRequests() {
+  const res = await fetch(`${BASE_URL}/auth/admin-requests`, {
+    headers: { ...getAuthHeader() }
+  });
+  return await handleResponse(res);
+}
+
+export async function reviewAdminRequest(userId, decision) {
+  const res = await fetch(`${BASE_URL}/auth/admin-requests/${userId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    body: JSON.stringify({ decision })
+  });
+  return await handleResponse(res);
 }

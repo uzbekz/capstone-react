@@ -1,14 +1,15 @@
 import "./MainPage.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
-import { getProducts } from "../api.js";
+import { deleteProduct, getProducts, getProfile, updateProduct } from "../api.js";
 import loadingGif from "../assets/loading.gif";
 
 function MainPage({ setProductId, categories, products, setProducts }) {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
 
   const [loading, setLoading] = useState(true);
+  const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
@@ -23,6 +24,18 @@ function MainPage({ setProductId, categories, products, setProducts }) {
     }
     loadProducts();
   }, [setProducts]);
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const profile = await getProfile();
+        setIsPrimaryAdmin(profile.role === "product_manager" && profile.id === 1);
+      } catch {
+        setIsPrimaryAdmin(false);
+      }
+    }
+    loadProfile();
+  }, []);
 
   // Convert buffer to base64
   const processedProducts = useMemo(() => {
@@ -69,16 +82,32 @@ function MainPage({ setProductId, categories, products, setProducts }) {
 
   async function deleteItem(id) {
     if (!window.confirm("Delete this product?")) return;
-    setProducts(products.filter(p => p.id !== id));
+    try {
+      setActionLoadingId(id);
+      await deleteProduct(id);
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      console.error("Failed to delete product: " + (err.message || "Unknown error"));
+    } finally {
+      setActionLoadingId(null);
+    }
   }
 
   async function restock(id, amount) {
     const product = products.find(p => p.id === id);
     if (product) {
-      const updatedProducts = products.map(p =>
-        p.id === id ? { ...p, quantity: p.quantity + amount } : p
-      );
-      setProducts(updatedProducts);
+      const newQuantity = Number(product.quantity) + amount;
+      try {
+        setActionLoadingId(id);
+        await updateProduct(id, { quantity: newQuantity });
+        setProducts(prev =>
+          prev.map(p => (p.id === id ? { ...p, quantity: newQuantity } : p))
+        );
+      } catch (err) {
+        console.error("Failed to restock product: " + (err.message || "Unknown error"));
+      } finally {
+        setActionLoadingId(null);
+      }
     }
   }
 
@@ -109,6 +138,7 @@ function MainPage({ setProductId, categories, products, setProducts }) {
         <Link to="/adminOrders">Manage Orders</Link>
         <Link to="/addProduct">Add Product</Link>
         <Link to="/dashboard">Dashboard</Link>
+        {isPrimaryAdmin && <Link to="/adminApprovals">Admin Requests</Link>}
 
         <button
           onClick={() => {
@@ -130,6 +160,12 @@ function MainPage({ setProductId, categories, products, setProducts }) {
           />
         </div>
       )}
+
+        {actionLoadingId !== null && (
+          <div className="loading-container">
+            <img src={loadingGif} alt="Updating product" className="loading-gif" />
+          </div>
+        )}
 
         {!loading && filteredProducts.length === 0 && (
           <h3>No products found.</h3>
@@ -155,15 +191,23 @@ function MainPage({ setProductId, categories, products, setProducts }) {
                   style={{ objectFit: "cover" }}
                 />
 
-                <p><b>{product.name}</b></p>
-                <p>{product.description}</p>
-                <p>Category: {product.category}</p>
-                <p>Price: ${product.price}</p>
-                <p>Qty: {product.quantity}</p>
+                <h3 className="product-title">{product.name}</h3>
+                <p className="product-description">{product.description}</p>
+
+                <div className="product-details">
+                  <p>Category: {product.category}</p>
+                  <p className="product-price">Price: ₹{product.price}</p>
+                  <p>Qty: {product.quantity}</p>
+                  <p>Weight: {product.weight}</p>
+                </div>
 
                 <button onClick={() => editProduct(product.id)}>Edit</button>
-                <button onClick={() => deleteItem(product.id)}>Delete</button>
-                <button onClick={() => restock(product.id, 100)}>+100</button>
+                <button onClick={() => deleteItem(product.id)} disabled={actionLoadingId === product.id}>
+                  {actionLoadingId === product.id ? "Deleting..." : "Delete"}
+                </button>
+                <button onClick={() => restock(product.id, 100)} disabled={actionLoadingId === product.id}>
+                  {actionLoadingId === product.id ? "Updating..." : "+100"}
+                </button>
               </div>
             );
           })}

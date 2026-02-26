@@ -11,6 +11,7 @@ function CustomerOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [cancellingId, setCancellingId] = useState(null);
 
   
   useEffect(() => {
@@ -65,12 +66,18 @@ function CustomerOrders() {
   return (
     <div style={{ padding: "24px" }}>
       <h2>📦 My Orders</h2>
-      <Link to="/profile">👤 Profile</Link>
+      
 
       <div className="orders-container">
         {loading && (
           <div className="loading-container">
             <img src={loadingGif} alt="Loading orders" className="loading-gif" />
+          </div>
+        )}
+
+        {cancellingId !== null && (
+          <div className="loading-container">
+            <img src={loadingGif} alt="Cancelling order" className="loading-gif" />
           </div>
         )}
 
@@ -101,12 +108,18 @@ function CustomerOrders() {
                   className="cancel-order-btn"
                   onClick={async () => {
                     if (!window.confirm("Cancel this order?")) return;
-                    const data = await cancelOrderRequest(order.id);
-                    alert(data.message);
-                    setOrders(prev => prev.filter(o => o.id !== order.id));
+                    try {
+                      setCancellingId(order.id);
+                      const data = await cancelOrderRequest(order.id);
+                      console.info(data.message);
+                      setOrders(prev => prev.filter(o => o.id !== order.id));
+                    } finally {
+                      setCancellingId(null);
+                    }
                   }}
+                  disabled={cancellingId === order.id}
                 >
-                  Cancel
+                  {cancellingId === order.id ? "Cancelling..." : "Cancel"}
                 </button>
               )}
               <Link to={`/order/${order.id}`} className="view-link">View details</Link>
@@ -137,7 +150,7 @@ function CustomerOrders() {
                   <div className="item-info">
                     <p className="item-name">{item.Product.name}</p>
                     <p className="item-meta">Qty: {item.quantity}</p>
-                    <p className="item-price">${Number(item.price).toFixed(2)}</p>
+                    <p className="item-price">₹{Number(item.price).toFixed(2)}</p>
                   </div>
                 </div>
               ))}
@@ -147,7 +160,7 @@ function CustomerOrders() {
               <div>
                 <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>Total Amount</p>
                 <h4 style={{ margin: "4px 0 0 0" }}>
-                  ${Number(order.total_price).toFixed(2)}
+                  ₹{Number(order.total_price).toFixed(2)}
                 </h4>
               </div>
             </div>

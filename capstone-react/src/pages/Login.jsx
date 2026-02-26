@@ -86,6 +86,10 @@ function Login() {
             </form>
 
             <p>
+              <Link to="/forgot-password">Forgot password?</Link>
+            </p>
+
+            <p>
               New user? <Link to="/register">register</Link>
             </p>
           </>

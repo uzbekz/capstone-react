@@ -1,12 +1,53 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
 import User from "../models/User.js";
 import { authenticate, authorize } from "../middleware/auth.js";
+import { Op } from "sequelize";
 
 const router = express.Router();
 
 const SECRET = "my_super_secret_key";  // later move to .env
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+const hasSmtpConfig =
+  process.env.SMTP_HOST &&
+  process.env.SMTP_PORT &&
+  process.env.SMTP_USER &&
+  process.env.SMTP_PASS &&
+  process.env.SMTP_FROM;
+
+const transporter = hasSmtpConfig
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    })
+  : null;
+
+async function sendPasswordResetEmail(email, resetToken) {
+  const resetUrl = `${FRONTEND_URL}/forgot-password?token=${resetToken}`;
+
+  if (!transporter) {
+    console.warn("[forgot-password] SMTP is not configured. Token not sent via email.");
+    console.log(`[forgot-password] reset token for ${email}: ${resetToken}`);
+    return;
+  }
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: email,
+    subject: "Reset your password",
+    text: `Use this link to reset your password: ${resetUrl}\n\nThis link expires in 15 minutes.`,
+    html: `<p>Use this link to reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link expires in 15 minutes.</p>`
+  });
+}
 
 // REGISTER
 router.post("/register", async (req, res) => {
@@ -85,6 +126,74 @@ router.post("/login", async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// FORGOT PASSWORD (request reset token)
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    const user = await User.findOne({ where: { email } });
+
+    // Keep response generic to avoid account enumeration
+    if (!user) {
+      return res.json({
+        message: "If an account exists for this email, a reset token has been generated."
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await user.update({
+      reset_password_token: resetTokenHash,
+      reset_password_expires: expiresAt
+    });
+
+    await sendPasswordResetEmail(email, resetToken);
+    return res.json({
+      message: "If an account exists for this email, a reset token has been generated."
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// RESET PASSWORD (submit token + new password)
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token and new password are required" });
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      where: {
+        reset_password_token: hashedToken,
+        reset_password_expires: { [Op.gt]: new Date() }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Reset token is invalid or expired" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await user.update({
+      password: hashedPassword,
+      reset_password_token: null,
+      reset_password_expires: null
+    });
+
+    return res.json({ message: "Password reset successful. You can now login." });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 

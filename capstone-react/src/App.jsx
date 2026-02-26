@@ -13,6 +13,7 @@ import CustomerOrders from './pages/CustomerOrders.jsx'
 import CustomerProfile from './pages/CustomerProfile.jsx'
 import OrderDetails from './pages/OrderDetails.jsx'
 import AdminApprovals from './pages/AdminApprovals.jsx'
+import ForgotPassword from "./pages/ForgotPassword.jsx"
 
 function App() {
   const [productId, setProductId] = useState(null)
@@ -31,6 +32,7 @@ function App() {
     <>
       <Routes>
         <Route path="/" element={<Login/>}/>
+        <Route path="/forgot-password" element={<ForgotPassword />}/>
         <Route path="/register" element={<Register />}/>
         <Route path="/mainPage" element={<MainPage setProductId={setProductId} categories={categories} products={products} setProducts={setProducts}/>}/>
         <Route path ="/addProduct" element={<AddProduct productId={productId} setProductId={setProductId} categories={categories} setCategories={setCategories}/>} />

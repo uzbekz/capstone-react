@@ -11,6 +11,30 @@ import OrderItem from "./models/OrderItem.js";
 import Cart from "./models/Cart.js";
 import { Op } from "sequelize";
 
+const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS || 7);
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getReturnDeadline(order) {
+  if (!order?.delivered_at) return null;
+  return new Date(new Date(order.delivered_at).getTime() + RETURN_WINDOW_DAYS * MS_PER_DAY);
+}
+
+function canReturnOrder(order) {
+  if (!order || order.status !== "delivered") return false;
+  const deadline = getReturnDeadline(order);
+  return Boolean(deadline && Date.now() <= deadline.getTime());
+}
+
+function serializeOrderWithReturnMeta(order) {
+  const deadline = getReturnDeadline(order);
+  return {
+    ...order.toJSON(),
+    return_window_days: RETURN_WINDOW_DAYS,
+    return_deadline: deadline,
+    can_return: canReturnOrder(order)
+  };
+}
+
 // associations
 OrderItem.belongsTo(Product, { foreignKey: "product_id" });
 
@@ -239,7 +263,7 @@ app.get(
         });
 
         result.push({
-          ...order.toJSON(),
+          ...serializeOrderWithReturnMeta(order),
           items: itemsWithBase64
         });
       }
@@ -274,7 +298,7 @@ app.get(
         });
 
         result.push({
-          ...order.toJSON(),
+          ...serializeOrderWithReturnMeta(order),
           items
         });
       }
@@ -331,7 +355,7 @@ app.patch(
         try {
           const o = await Order.findByPk(order.id);
           if (o && o.status === "dispatched") {
-            await o.update({ status: "delivered" });
+            await o.update({ status: "delivered", delivered_at: new Date() });
             console.log(`Order ${o.id} automatically marked delivered at ${new Date().toISOString()}`);
           }
         } catch (err) {
@@ -508,10 +532,58 @@ app.get(
       });
 
       res.json({
-        ...order.toJSON(),
+        ...serializeOrderWithReturnMeta(order),
         items: itemsWithBase64
       });
     } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.patch(
+  "/orders/:id/return",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      const order = await Order.findByPk(req.params.id);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (order.customer_id !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      if (order.status !== "delivered") {
+        return res.status(400).json({ message: "Only delivered orders can be returned" });
+      }
+
+      const deadline = getReturnDeadline(order);
+      if (!deadline || Date.now() > deadline.getTime()) {
+        return res.status(400).json({
+          message: `Return window closed. Returns are allowed for ${RETURN_WINDOW_DAYS} days after delivery.`
+        });
+      }
+
+      const items = await OrderItem.findAll({
+        where: { order_id: order.id }
+      });
+
+      for (const item of items) {
+        const product = await Product.findByPk(item.product_id);
+        if (!product) continue;
+        await product.update({
+          quantity: product.quantity + item.quantity
+        });
+      }
+
+      await order.update({ status: "returned" });
+
+      res.json({ message: "Order returned successfully" });
+    } catch (err) {
+      console.error(err);
       res.status(500).json({ error: err.message });
     }
   }

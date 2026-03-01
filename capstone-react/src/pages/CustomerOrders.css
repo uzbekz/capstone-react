@@ -120,6 +120,11 @@ h2 {
   color: #1e3a8a;
 }
 
+.status-returned {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
 .order-items-grid {
   padding: 16px;
   display: grid;
@@ -252,6 +257,29 @@ h2 {
   background: rgba(220, 38, 38, 0.12);
   border-color: rgba(220, 38, 38, 0.4);
   transform: translateY(-1px);
+}
+
+.return-order-btn {
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.return-order-btn:hover {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.55);
+  transform: translateY(-1px);
+}
+
+.return-order-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
 }
 
 .back-btn {

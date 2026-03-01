@@ -1,8 +1,10 @@
 import "./OrderDetails.css";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getOrderDetails, cancelOrderRequest } from "../api";
+import { getOrderDetails, cancelOrderRequest, returnOrderRequest } from "../api";
 import loadingGif from "../assets/loading.gif";
+
+const DEFAULT_RETURN_WINDOW_DAYS = 7;
 
 function OrderDetails() {
   const { id } = useParams();
@@ -11,6 +13,20 @@ function OrderDetails() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [remaining, setRemaining] = useState(null);
+
+  function getReturnDeadline(currentOrder) {
+    if (!currentOrder?.delivered_at) return null;
+    if (currentOrder.return_deadline) return new Date(currentOrder.return_deadline);
+    const days = currentOrder.return_window_days || DEFAULT_RETURN_WINDOW_DAYS;
+    return new Date(new Date(currentOrder.delivered_at).getTime() + days * 24 * 60 * 60 * 1000);
+  }
+
+  function canReturn(currentOrder) {
+    if (!currentOrder || currentOrder.status !== "delivered") return false;
+    if (typeof currentOrder.can_return === "boolean") return currentOrder.can_return;
+    const deadline = getReturnDeadline(currentOrder);
+    return Boolean(deadline && Date.now() <= deadline.getTime());
+  }
 
   useEffect(() => {
     async function load() {
@@ -21,7 +37,6 @@ function OrderDetails() {
     load();
   }, [id]);
 
-  // poll while dispatched until delivered
   useEffect(() => {
     if (!order) return;
 
@@ -42,7 +57,6 @@ function OrderDetails() {
     };
   }, [order, id]);
 
-  // live ETA countdown (updates every second)
   useEffect(() => {
     if (!order || order.status !== "dispatched" || !order.delivered_at) {
       setRemaining(null);
@@ -73,20 +87,36 @@ function OrderDetails() {
     }
   }
 
+  async function returnOrder() {
+    if (!window.confirm("Return this delivered order?")) return;
+    try {
+      setActionLoading(true);
+      const data = await returnOrderRequest(id);
+      console.info(data.message);
+      const updated = await getOrderDetails(id);
+      setOrder(updated);
+    } catch (err) {
+      alert(err.message || "Failed to return order");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   const renderTimeline = () => {
     const steps = [
       { key: "pending", label: "Pending" },
       { key: "dispatched", label: "Dispatched" },
-      { key: "delivered", label: "Delivered" }
+      { key: "delivered", label: "Delivered" },
+      { key: "returned", label: "Returned" }
     ];
     const currentIndex = steps.findIndex(s => s.key === order.status);
-    // if cancelled, highlight differently
+
     return (
       <div className="timeline">
         {steps.map((step, idx) => (
           <div
             key={step.key}
-            className={`timeline-step ${idx <= currentIndex ? "active" : ""}`}
+            className={`timeline-step ${currentIndex >= 0 && idx <= currentIndex ? "active" : ""}`}
           >
             {step.label}
           </div>
@@ -132,20 +162,36 @@ function OrderDetails() {
       {remaining !== null && remaining > 0 && (
         <p className="eta">Arriving in {Math.floor(remaining / 60000)}m {Math.floor((remaining % 60000) / 1000)}s</p>
       )}
+      {(order.status === "delivered" || order.status === "returned") && order.delivered_at && (
+        <p>Delivered At: {new Date(order.delivered_at).toLocaleString()}</p>
+      )}
+      {order.status === "delivered" && (
+        <p>Return By: {getReturnDeadline(order)?.toLocaleString() || "N/A"}</p>
+      )}
       <p>Date: {new Date(order.createdAt || order.created_at).toLocaleString()}</p>
       <div className="items">
         {order.items.map(item => (
           <div key={item.id} className="item-row">
             <p>{item.Product.name} x {item.quantity}</p>
-            <p>₹{Number(item.price).toFixed(2)}</p>
+            <p>Rs {Number(item.price).toFixed(2)}</p>
           </div>
         ))}
       </div>
-      <p className="total">Total: ₹{Number(order.total_price).toFixed(2)}</p>
+      <p className="total">Total: Rs {Number(order.total_price).toFixed(2)}</p>
       <div className="details-actions">
-        <button className="back-btn" onClick={() => navigate("/customerOrders")}>{"\u2190"} Back to Orders</button>
+        <button className="back-btn" onClick={() => navigate("/customerOrders")}>Back to Orders</button>
         {order.status === "pending" && (
           <button className="btn-cancel" onClick={cancel}>Cancel Order</button>
+        )}
+        {order.status === "delivered" && (
+          <button
+            className="btn-return"
+            onClick={returnOrder}
+            disabled={!canReturn(order)}
+            title={!canReturn(order) ? "Return window has closed" : "Return this order"}
+          >
+            {canReturn(order) ? "Return Order" : "Return Window Closed"}
+          </button>
         )}
       </div>
     </div>

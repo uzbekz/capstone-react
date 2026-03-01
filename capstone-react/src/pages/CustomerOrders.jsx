@@ -2,7 +2,9 @@ import "./CustomerOrders.css";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
-import { cancelOrderRequest } from "../api";
+import { cancelOrderRequest, returnOrderRequest } from "../api";
+
+const DEFAULT_RETURN_WINDOW_DAYS = 7;
 
 function CustomerOrders() {
   const navigate = useNavigate();
@@ -12,14 +14,26 @@ function CustomerOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
+  const [returningId, setReturningId] = useState(null);
 
-  
+  function getReturnDeadline(order) {
+    if (!order?.delivered_at) return null;
+    if (order.return_deadline) return new Date(order.return_deadline);
+    const days = order.return_window_days || DEFAULT_RETURN_WINDOW_DAYS;
+    return new Date(new Date(order.delivered_at).getTime() + days * 24 * 60 * 60 * 1000);
+  }
+
+  function canReturn(order) {
+    if (!order || order.status !== "delivered") return false;
+    if (typeof order.can_return === "boolean") return order.can_return;
+    const deadline = getReturnDeadline(order);
+    return Boolean(deadline && Date.now() <= deadline.getTime());
+  }
+
   useEffect(() => {
     if (!token) navigate("/");
   }, [token, navigate]);
 
-  
-  // load orders and handle errors
   async function loadOrders() {
     setLoading(true);
     setError(null);
@@ -32,8 +46,8 @@ function CustomerOrders() {
 
       const data = await res.json();
       if (!res.ok) {
-        const msg = data && data.error ? data.error : 'Server error';
-        console.error('GET /orders failed', data);
+        const msg = data && data.error ? data.error : "Server error";
+        console.error("GET /orders failed", data);
         setError(msg);
         setOrders([]);
         return;
@@ -42,13 +56,13 @@ function CustomerOrders() {
       if (Array.isArray(data)) {
         setOrders(data);
       } else {
-        console.error('Unexpected /orders response', data);
-        setError('Unexpected server response');
+        console.error("Unexpected /orders response", data);
+        setError("Unexpected server response");
         setOrders([]);
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Network error');
+      setError(err.message || "Network error");
       setOrders([]);
     } finally {
       setLoading(false);
@@ -65,8 +79,7 @@ function CustomerOrders() {
 
   return (
     <div style={{ padding: "24px" }}>
-      <h2>📦 My Orders</h2>
-      
+      <h2>My Orders</h2>
 
       <div className="orders-container">
         {loading && (
@@ -78,6 +91,12 @@ function CustomerOrders() {
         {cancellingId !== null && (
           <div className="loading-container">
             <img src={loadingGif} alt="Cancelling order" className="loading-gif" />
+          </div>
+        )}
+
+        {returningId !== null && (
+          <div className="loading-container">
+            <img src={loadingGif} alt="Returning order" className="loading-gif" />
           </div>
         )}
 
@@ -93,7 +112,7 @@ function CustomerOrders() {
         {!loading && error && (
           <div className="error-card">
             <p><strong>Could not load orders</strong></p>
-            <p style={{ color: 'var(--muted)', marginTop: 6 }}>{error}</p>
+            <p style={{ color: "var(--muted)", marginTop: 6 }}>{error}</p>
             <div style={{ marginTop: 12 }}>
               <button className="retry-btn" onClick={loadOrders}>Retry</button>
             </div>
@@ -112,7 +131,13 @@ function CustomerOrders() {
                       setCancellingId(order.id);
                       const data = await cancelOrderRequest(order.id);
                       console.info(data.message);
-                      setOrders(prev => prev.filter(o => o.id !== order.id));
+                      setOrders(prev =>
+                        prev.map(o =>
+                          o.id === order.id ? { ...o, status: "cancelled" } : o
+                        )
+                      );
+                    } catch (err) {
+                      alert(err.message || "Failed to cancel order");
                     } finally {
                       setCancellingId(null);
                     }
@@ -122,8 +147,37 @@ function CustomerOrders() {
                   {cancellingId === order.id ? "Cancelling..." : "Cancel"}
                 </button>
               )}
+
+              {order.status === "delivered" && (
+                <button
+                  className="return-order-btn"
+                  onClick={async () => {
+                    if (!window.confirm("Return this delivered order?")) return;
+                    try {
+                      setReturningId(order.id);
+                      const data = await returnOrderRequest(order.id);
+                      console.info(data.message);
+                      setOrders(prev =>
+                        prev.map(o =>
+                          o.id === order.id ? { ...o, status: "returned", can_return: false } : o
+                        )
+                      );
+                    } catch (err) {
+                      alert(err.message || "Failed to return order");
+                    } finally {
+                      setReturningId(null);
+                    }
+                  }}
+                  disabled={returningId === order.id || !canReturn(order)}
+                  title={!canReturn(order) ? "Return window has closed" : "Return this order"}
+                >
+                  {returningId === order.id ? "Returning..." : canReturn(order) ? "Return" : "Return Closed"}
+                </button>
+              )}
+
               <Link to={`/order/${order.id}`} className="view-link">View details</Link>
             </div>
+
             <div className="order-header">
               <div>
                 <h3 style={{ margin: "0 0 4px 0" }}>Order #{order.id}</h3>
@@ -141,8 +195,8 @@ function CustomerOrders() {
                 <div key={item.id} className="order-item">
                   {item.Product.image && (
                     <div className="item-image">
-                      <img 
-                        src={`data:image/jpeg;base64,${item.Product.image}`} 
+                      <img
+                        src={`data:image/jpeg;base64,${item.Product.image}`}
                         alt={item.Product.name}
                       />
                     </div>
@@ -150,7 +204,7 @@ function CustomerOrders() {
                   <div className="item-info">
                     <p className="item-name">{item.Product.name}</p>
                     <p className="item-meta">Qty: {item.quantity}</p>
-                    <p className="item-price">₹{Number(item.price).toFixed(2)}</p>
+                    <p className="item-price">Rs {Number(item.price).toFixed(2)}</p>
                   </div>
                 </div>
               ))}
@@ -160,8 +214,13 @@ function CustomerOrders() {
               <div>
                 <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>Total Amount</p>
                 <h4 style={{ margin: "4px 0 0 0" }}>
-                  ₹{Number(order.total_price).toFixed(2)}
+                  Rs {Number(order.total_price).toFixed(2)}
                 </h4>
+                {order.status === "delivered" && (
+                  <p style={{ margin: "6px 0 0 0", fontSize: "12px", color: "var(--muted)" }}>
+                    Return by: {getReturnDeadline(order)?.toLocaleString() || "N/A"}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -169,7 +228,7 @@ function CustomerOrders() {
       </div>
 
       <Link to="/customerProducts" className="back-link">
-        ⬅ Back to Products
+        Back to Products
       </Link>
     </div>
   );

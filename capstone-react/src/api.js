@@ -147,7 +147,15 @@ export async function cancelOrderRequest(orderId) {
     method: "PATCH",
     headers: { ...getAuthHeader() }
   });
-  return await res.json();
+  return await handleResponse(res);
+}
+
+export async function returnOrderRequest(orderId) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/return`, {
+    method: "PATCH",
+    headers: { ...getAuthHeader() }
+  });
+  return await handleResponse(res);
 }
 
 // ----- primary admin approval helpers -----

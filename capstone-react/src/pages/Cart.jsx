@@ -15,6 +15,7 @@ function Cart() {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const fetchCart = useCallback(async () => {
     try {
@@ -125,7 +126,7 @@ function Cart() {
     }));
 
     try {
-      setActionLoading(true);
+      setCheckoutLoading(true);
       const res = await fetch("http://localhost:5000/orders", {
         method: "POST",
         headers: {
@@ -139,14 +140,26 @@ function Cart() {
 
       if (res.ok) {
         console.info("Order placed successfully!");
-        await clearCart();
+        await clearCartRequest();
+        setCart([]);
         navigate("/customerOrders");
       } else {
         console.error(data.message);
       }
+    } catch (err) {
+      console.error(err);
+      console.error("Network error while checking out");
     } finally {
-      setActionLoading(false);
+      setCheckoutLoading(false);
     }
+  }
+
+  if (checkoutLoading) {
+    return (
+      <div className="full-page-loader">
+        <img src={loadingGif} alt="Processing checkout" className="loading-gif" />
+      </div>
+    );
   }
 
   return (

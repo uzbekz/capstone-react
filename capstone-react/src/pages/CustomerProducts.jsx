@@ -6,23 +6,19 @@ import loadingGif from "../assets/loading.gif";
 
 function CustomerProducts({ products, setProducts, categories }) {
   const navigate = useNavigate();
-
   const token = localStorage.getItem("token");
 
   const [loading, setLoading] = useState(true);
   const [addingToCartId, setAddingToCartId] = useState(null);
 
-  
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
 
-  
   useEffect(() => {
     if (!token) navigate("/");
   }, [token, navigate]);
 
-  
   useEffect(() => {
     async function loadProducts() {
       setLoading(true);
@@ -33,34 +29,33 @@ function CustomerProducts({ products, setProducts, categories }) {
     loadProducts();
   }, [setProducts]);
 
-  
   const processedProducts = useMemo(() => {
-    return products.map(p => ({
+    return products.map((p) => ({
       ...p,
       imageSrc: p.image
         ? (() => {
             const bytes = new Uint8Array(p.image.data);
             let binary = "";
-            bytes.forEach(b => (binary += String.fromCharCode(b)));
+            bytes.forEach((b) => (binary += String.fromCharCode(b)));
             return `data:image/jpeg;base64,${btoa(binary)}`;
           })()
-        : ""
+        : "",
     }));
   }, [products]);
 
-  
   const filteredProducts = useMemo(() => {
     let filtered = [...processedProducts];
 
     if (search) {
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(search) ||
-        p.category.toLowerCase().includes(search)
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(search) ||
+          p.category.toLowerCase().includes(search),
       );
     }
 
     if (category !== "all") {
-      filtered = filtered.filter(p => p.category === category);
+      filtered = filtered.filter((p) => p.category === category);
     }
 
     if (sort === "price-low-to-high") filtered.sort((a, b) => a.price - b.price);
@@ -71,7 +66,6 @@ function CustomerProducts({ products, setProducts, categories }) {
     return filtered;
   }, [processedProducts, search, category, sort]);
 
-  
   async function addToCart(product, qty) {
     if (!token) {
       console.warn("Please login to add items to your cart");
@@ -81,7 +75,6 @@ function CustomerProducts({ products, setProducts, categories }) {
     try {
       setAddingToCartId(product.id);
       const data = await addToCartRequest(product.id, qty);
-      // addToCartRequest returns the JSON payload regardless of success
       if (data.id) {
         console.info("Added to cart!");
       } else {
@@ -97,22 +90,23 @@ function CustomerProducts({ products, setProducts, categories }) {
 
   return (
     <>
-      
       <div className="toolbar">
         <input
           className="search-bar"
           placeholder="Search products..."
-          onChange={e => setSearch(e.target.value.toLowerCase())}
+          onChange={(e) => setSearch(e.target.value.toLowerCase())}
         />
 
-        <select onChange={e => setCategory(e.target.value)}>
+        <select onChange={(e) => setCategory(e.target.value)}>
           <option value="all">All Categories</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
 
-        <select onChange={e => setSort(e.target.value)}>
+        <select onChange={(e) => setSort(e.target.value)}>
           <option value="default">Sort By</option>
           <option value="price-high-to-low">Price (high to low)</option>
           <option value="price-low-to-high">Price (low to high)</option>
@@ -120,7 +114,7 @@ function CustomerProducts({ products, setProducts, categories }) {
           <option value="quantity-low-to-high">Quantity (low to high)</option>
         </select>
 
-        <Link to="/cart">🛒 Cart</Link>
+        <Link to="/cart">Cart</Link>
         <Link to="/customerOrders">Order History</Link>
         <Link to="/profile">Profile</Link>
 
@@ -134,77 +128,70 @@ function CustomerProducts({ products, setProducts, categories }) {
         </button>
       </div>
 
-      
-      <div className="product-array">
-        {loading && (
-          <div className="loading-container">
-            <img
-              src={loadingGif}
-              alt="Loading products"
-              className="loading-gif"
-            />
-          </div>
-        )}
+      {addingToCartId !== null ? (
+        <div className="content-loader">
+          <img src={loadingGif} alt="Adding to cart" className="loading-gif" />
+        </div>
+      ) : (
+        <div className="product-array">
+          {loading && (
+            <div className="loading-container">
+              <img src={loadingGif} alt="Loading products" className="loading-gif" />
+            </div>
+          )}
 
-        {addingToCartId !== null && (
-          <div className="loading-container">
-            <img src={loadingGif} alt="Adding to cart" className="loading-gif" />
-          </div>
-        )}
+          {!loading && filteredProducts.length === 0 && <h3>No products found.</h3>}
 
-        {!loading && filteredProducts.length === 0 && (
-          <h3>No products found.</h3>
-        )}
+          {!loading &&
+            filteredProducts.map((product) => {
+              const lowStock = product.quantity < 10;
 
-        {!loading &&
-          filteredProducts.map(product => {
-            const lowStock = product.quantity < 10;
-
-            return (
-              <div
-                key={product.id}
-                className="product-card"
-                style={{ borderColor: lowStock ? "red" : "#ccc" }}
-              >
-                {lowStock && <p style={{ color: "red" }}>⚠ Low Stock</p>}
-
-                <img
-                  src={product.imageSrc}
-                  width={300}
-                  height={300}
-                  style={{ objectFit: "cover" }}
-                  alt={product.name}
-                />
-
-                <p><b>{product.name}</b></p>
-                <p>{product.description}</p>
-                <p>Category: {product.category}</p>
-                <p>Price: ₹{product.price}</p>
-                <p>Stock: {product.quantity}</p>
-
-                <input
-                  type="number"
-                  min="1"
-                  max={product.quantity}
-                  defaultValue="1"
-                  id={`qty-${product.id}`}
-                />
-
-                <button
-                  onClick={() => {
-                    const qty = Number(
-                      document.getElementById(`qty-${product.id}`).value
-                    );
-                    addToCart(product, qty);
-                  }}
-                  disabled={addingToCartId === product.id}
+              return (
+                <div
+                  key={product.id}
+                  className={`product-card${lowStock ? " low-stock" : ""}`}
                 >
-                  {addingToCartId === product.id ? "Adding..." : "Add to Cart"}
-                </button>
-              </div>
-            );
-          })}
-      </div>
+                  {lowStock && <span className="low-stock-badge">Low Stock</span>}
+
+                  <img
+                    src={product.imageSrc}
+                    width={300}
+                    height={300}
+                    style={{ objectFit: "cover" }}
+                    alt={product.name}
+                  />
+
+                  <h3 className="product-title">{product.name}</h3>
+                  <p className="product-description">{product.description}</p>
+
+                  <div className="product-details">
+                    <p>Category: {product.category}</p>
+                    <p className="product-price">Price: Rs {product.price}</p>
+                    <p>Qty: {product.quantity}</p>
+                  </div>
+
+                  <input
+                    type="number"
+                    min="1"
+                    max={product.quantity}
+                    defaultValue="1"
+                    id={`qty-${product.id}`}
+                  />
+
+                  <button
+                    onClick={() => {
+                      const qty = Number(document.getElementById(`qty-${product.id}`).value);
+                      addToCart(product, qty);
+                    }}
+                    disabled={addingToCartId === product.id}
+                  >
+                    {addingToCartId === product.id ? "Adding..." : "Add to Cart"}
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+      )}
     </>
   );
 }

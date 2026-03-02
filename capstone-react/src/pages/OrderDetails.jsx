@@ -113,14 +113,24 @@ function OrderDetails() {
 
     return (
       <div className="timeline">
-        {steps.map((step, idx) => (
-          <div
-            key={step.key}
-            className={`timeline-step ${currentIndex >= 0 && idx <= currentIndex ? "active" : ""}`}
-          >
-            {step.label}
-          </div>
-        ))}
+        {steps.map((step, idx) => {
+          const isActive = currentIndex >= 0 && idx <= currentIndex;
+          const isCurrent = idx === currentIndex;
+          const isConnectorActive = currentIndex > idx;
+
+          return (
+            <div
+              key={step.key}
+              className={`timeline-step ${isActive ? "active" : ""} ${isCurrent ? "current" : ""}`}
+            >
+              <div className="timeline-dot" />
+              <span className="timeline-label">{step.label}</span>
+              {idx < steps.length - 1 && (
+                <div className={`timeline-connector ${isConnectorActive ? "active" : ""}`} />
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -152,47 +162,97 @@ function OrderDetails() {
   }
 
   return (
-    <div className="order-details">
-      <h2>Order #{order.id}</h2>
-      {renderTimeline()}
-      <p>Status: {order.status}</p>
-      {order.status === "dispatched" && order.delivered_at && (
-        <p className="eta">ETA: {new Date(order.delivered_at).toLocaleString()}</p>
-      )}
-      {remaining !== null && remaining > 0 && (
-        <p className="eta">Arriving in {Math.floor(remaining / 60000)}m {Math.floor((remaining % 60000) / 1000)}s</p>
-      )}
-      {(order.status === "delivered" || order.status === "returned") && order.delivered_at && (
-        <p>Delivered At: {new Date(order.delivered_at).toLocaleString()}</p>
-      )}
-      {order.status === "delivered" && (
-        <p>Return By: {getReturnDeadline(order)?.toLocaleString() || "N/A"}</p>
-      )}
-      <p>Date: {new Date(order.createdAt || order.created_at).toLocaleString()}</p>
-      <div className="items">
-        {order.items.map(item => (
-          <div key={item.id} className="item-row">
-            <p>{item.Product.name} x {item.quantity}</p>
-            <p>Rs {Number(item.price).toFixed(2)}</p>
+    <div className="order-details-page">
+      <div className="order-details">
+        <div className="order-hero">
+          <div>
+            <p className="order-kicker">Order Details</p>
+            <h2>Order #{order.id}</h2>
+            <span className={`status-pill status-${order.status}`}>
+              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+            </span>
           </div>
-        ))}
-      </div>
-      <p className="total">Total: Rs {Number(order.total_price).toFixed(2)}</p>
-      <div className="details-actions">
-        <button className="back-btn" onClick={() => navigate("/customerOrders")}>Back to Orders</button>
-        {order.status === "pending" && (
-          <button className="btn-cancel" onClick={cancel}>Cancel Order</button>
-        )}
-        {order.status === "delivered" && (
-          <button
-            className="btn-return"
-            onClick={returnOrder}
-            disabled={!canReturn(order)}
-            title={!canReturn(order) ? "Return window has closed" : "Return this order"}
-          >
-            {canReturn(order) ? "Return Order" : "Return Window Closed"}
-          </button>
-        )}
+          <div className="order-total-card">
+            <p className="meta-label">Total Amount</p>
+            <p className="total">Rs {Number(order.total_price).toFixed(2)}</p>
+            <p className="meta-text">
+              Placed on {new Date(order.createdAt || order.created_at).toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        {renderTimeline()}
+
+        <div className="order-info-grid">
+          <div className="info-card">
+            <p className="meta-label">Current Status</p>
+            <p className="meta-value">
+              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+            </p>
+          </div>
+
+          {order.status === "dispatched" && order.delivered_at && (
+            <div className="info-card">
+              <p className="meta-label">Estimated Delivery</p>
+              <p className="meta-value">{new Date(order.delivered_at).toLocaleString()}</p>
+            </div>
+          )}
+
+          {remaining !== null && remaining > 0 && (
+            <div className="info-card">
+              <p className="meta-label">Arriving In</p>
+              <p className="meta-value eta">
+                {Math.floor(remaining / 60000)}m {Math.floor((remaining % 60000) / 1000)}s
+              </p>
+            </div>
+          )}
+
+          {(order.status === "delivered" || order.status === "returned") && order.delivered_at && (
+            <div className="info-card">
+              <p className="meta-label">Delivered At</p>
+              <p className="meta-value">{new Date(order.delivered_at).toLocaleString()}</p>
+            </div>
+          )}
+
+          {order.status === "delivered" && (
+            <div className="info-card">
+              <p className="meta-label">Return By</p>
+              <p className="meta-value">{getReturnDeadline(order)?.toLocaleString() || "N/A"}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="items-panel">
+          <h3>Items</h3>
+          <div className="items">
+            {order.items.map(item => (
+              <div key={item.id} className="item-row">
+                <div className="item-main">
+                  <p className="item-name">{item.Product.name}</p>
+                  <p className="item-qty">Qty {item.quantity}</p>
+                </div>
+                <p className="item-price">Rs {Number(item.price).toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="details-actions">
+          <button className="back-btn" onClick={() => navigate("/customerOrders")}>Back to Orders</button>
+          {order.status === "pending" && (
+            <button className="btn-cancel" onClick={cancel}>Cancel Order</button>
+          )}
+          {order.status === "delivered" && (
+            <button
+              className="btn-return"
+              onClick={returnOrder}
+              disabled={!canReturn(order)}
+              title={!canReturn(order) ? "Return window has closed" : "Return this order"}
+            >
+              {canReturn(order) ? "Return Order" : "Return Window Closed"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

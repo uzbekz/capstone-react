@@ -158,6 +158,11 @@
   font-size: 14px;
 }
 
+.qty-restocked {
+  color: #16a34a !important;
+  font-weight: 700;
+}
+
 .product-meta {
   display: flex;
   justify-content: space-between;
@@ -202,4 +207,11 @@
 .loading-gif {
   width: 64px;
   height: 64px;
+}
+
+.content-loader {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

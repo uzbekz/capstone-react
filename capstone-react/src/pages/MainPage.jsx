@@ -10,11 +10,12 @@ function MainPage({ setProductId, categories, products, setProducts }) {
   const [loading, setLoading] = useState(true);
   const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [gridLoading, setGridLoading] = useState(false);
+  const [restockedProducts, setRestockedProducts] = useState({});
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
 
-  // Load products once on mount
   useEffect(() => {
     async function loadProducts() {
       setLoading(true);
@@ -37,34 +38,33 @@ function MainPage({ setProductId, categories, products, setProducts }) {
     loadProfile();
   }, []);
 
-  // Convert buffer to base64
   const processedProducts = useMemo(() => {
-    return products.map(p => ({
+    return products.map((p) => ({
       ...p,
       imageSrc: p.image
         ? (() => {
             const bytes = new Uint8Array(p.image.data);
             let binary = "";
-            bytes.forEach(b => (binary += String.fromCharCode(b)));
+            bytes.forEach((b) => (binary += String.fromCharCode(b)));
             return `data:image/jpeg;base64,${btoa(binary)}`;
           })()
-        : ""
+        : "",
     }));
   }, [products]);
 
-  // Filter and sort instantly
   const filteredProducts = useMemo(() => {
     let filtered = [...processedProducts];
 
     if (search) {
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(search) ||
-        p.category.toLowerCase().includes(search)
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(search) ||
+          p.category.toLowerCase().includes(search),
       );
     }
 
     if (category !== "all") {
-      filtered = filtered.filter(p => p.category === category);
+      filtered = filtered.filter((p) => p.category === category);
     }
 
     if (sort === "price-low-to-high") filtered.sort((a, b) => a.price - b.price);
@@ -85,7 +85,7 @@ function MainPage({ setProductId, categories, products, setProducts }) {
     try {
       setActionLoadingId(id);
       await deleteProduct(id);
-      setProducts(prev => prev.filter(p => p.id !== id));
+      setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       console.error("Failed to delete product: " + (err.message || "Unknown error"));
     } finally {
@@ -94,20 +94,32 @@ function MainPage({ setProductId, categories, products, setProducts }) {
   }
 
   async function restock(id, amount) {
-    const product = products.find(p => p.id === id);
-    if (product) {
-      const newQuantity = Number(product.quantity) + amount;
-      try {
-        setActionLoadingId(id);
-        await updateProduct(id, { quantity: newQuantity });
-        setProducts(prev =>
-          prev.map(p => (p.id === id ? { ...p, quantity: newQuantity } : p))
-        );
-      } catch (err) {
-        console.error("Failed to restock product: " + (err.message || "Unknown error"));
-      } finally {
-        setActionLoadingId(null);
-      }
+    const product = products.find((p) => p.id === id);
+    if (!product) return;
+
+    const newQuantity = Number(product.quantity) + amount;
+    const shouldUseGridLoader = amount >= 100;
+
+    try {
+      setActionLoadingId(id);
+      if (shouldUseGridLoader) setGridLoading(true);
+      await updateProduct(id, { quantity: newQuantity });
+      setProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, quantity: newQuantity } : p)),
+      );
+      setRestockedProducts((prev) => ({ ...prev, [id]: true }));
+      setTimeout(() => {
+        setRestockedProducts((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      }, 2200);
+    } catch (err) {
+      console.error("Failed to restock product: " + (err.message || "Unknown error"));
+    } finally {
+      if (shouldUseGridLoader) setGridLoading(false);
+      setActionLoadingId(null);
     }
   }
 
@@ -117,22 +129,24 @@ function MainPage({ setProductId, categories, products, setProducts }) {
         <input
           className="search-bar"
           placeholder="Search products..."
-          onChange={e => setSearch(e.target.value.toLowerCase())}
+          onChange={(e) => setSearch(e.target.value.toLowerCase())}
         />
 
-        <select onChange={e => setCategory(e.target.value)}>
+        <select onChange={(e) => setCategory(e.target.value)}>
           <option value="all">All Categories</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
 
-        <select onChange={e => setSort(e.target.value)}>
+        <select onChange={(e) => setSort(e.target.value)}>
           <option value="default">Sort By</option>
-          <option value="price-low-to-high">Price ↑</option>
-          <option value="price-high-to-low">Price ↓</option>
-          <option value="quantity-low-to-high">Qty ↑</option>
-          <option value="quantity-high-to-low">Qty ↓</option>
+          <option value="price-low-to-high">Price low-high</option>
+          <option value="price-high-to-low">Price high-low</option>
+          <option value="quantity-low-to-high">Qty low-high</option>
+          <option value="quantity-high-to-low">Qty high-low</option>
         </select>
 
         <Link to="/adminOrders">Manage Orders</Link>
@@ -150,68 +164,64 @@ function MainPage({ setProductId, categories, products, setProducts }) {
         </button>
       </div>
 
-      <div className="product-array">
-        {loading && (
-        <div className="loading-container">
-          <img
-            src={loadingGif}
-            alt="Loading products"
-            className="loading-gif"
-          />
+      {gridLoading ? (
+        <div className="content-loader">
+          <img src={loadingGif} alt="Updating product stock" className="loading-gif" />
+        </div>
+      ) : (
+        <div className="product-array">
+          {loading && (
+            <div className="loading-container">
+              <img src={loadingGif} alt="Loading products" className="loading-gif" />
+            </div>
+          )}
+
+          {!loading && filteredProducts.length === 0 && <h3>No products found.</h3>}
+
+          {!loading &&
+            filteredProducts.map((product) => {
+              const lowStock = product.quantity < 10;
+
+              return (
+                <div
+                  key={product.id}
+                  className="product-card"
+                  style={{ borderColor: lowStock ? "red" : "#ccc" }}
+                >
+                  {lowStock && <p style={{ color: "red" }}>Low Stock</p>}
+
+                  <img
+                    src={product.imageSrc}
+                    alt={product.name}
+                    width={300}
+                    height={300}
+                    style={{ objectFit: "cover" }}
+                  />
+
+                  <h3 className="product-title">{product.name}</h3>
+                  <p className="product-description">{product.description}</p>
+
+                  <div className="product-details">
+                    <p>Category: {product.category}</p>
+                    <p className="product-price">Price: Rs {product.price}</p>
+                    <p className={restockedProducts[product.id] ? "qty-restocked" : ""}>
+                      Qty: {product.quantity}
+                    </p>
+                    <p>Weight: {product.weight}</p>
+                  </div>
+
+                  <button onClick={() => editProduct(product.id)}>Edit</button>
+                  <button onClick={() => deleteItem(product.id)} disabled={actionLoadingId === product.id}>
+                    {actionLoadingId === product.id ? "Deleting..." : "Delete"}
+                  </button>
+                  <button onClick={() => restock(product.id, 100)} disabled={actionLoadingId === product.id}>
+                    {actionLoadingId === product.id ? "Updating..." : "+100"}
+                  </button>
+                </div>
+              );
+            })}
         </div>
       )}
-
-        {actionLoadingId !== null && (
-          <div className="loading-container">
-            <img src={loadingGif} alt="Updating product" className="loading-gif" />
-          </div>
-        )}
-
-        {!loading && filteredProducts.length === 0 && (
-          <h3>No products found.</h3>
-        )}
-
-        {!loading &&
-          filteredProducts.map(product => {
-            const lowStock = product.quantity < 10;
-
-            return (
-              <div
-                key={product.id}
-                className="product-card"
-                style={{ borderColor: lowStock ? "red" : "#ccc" }}
-              >
-                {lowStock && <p style={{ color: "red" }}>⚠ Low Stock</p>}
-
-                <img
-                  src={product.imageSrc}
-                  alt={product.name}
-                  width={300}
-                  height={300}
-                  style={{ objectFit: "cover" }}
-                />
-
-                <h3 className="product-title">{product.name}</h3>
-                <p className="product-description">{product.description}</p>
-
-                <div className="product-details">
-                  <p>Category: {product.category}</p>
-                  <p className="product-price">Price: ₹{product.price}</p>
-                  <p>Qty: {product.quantity}</p>
-                  <p>Weight: {product.weight}</p>
-                </div>
-
-                <button onClick={() => editProduct(product.id)}>Edit</button>
-                <button onClick={() => deleteItem(product.id)} disabled={actionLoadingId === product.id}>
-                  {actionLoadingId === product.id ? "Deleting..." : "Delete"}
-                </button>
-                <button onClick={() => restock(product.id, 100)} disabled={actionLoadingId === product.id}>
-                  {actionLoadingId === product.id ? "Updating..." : "+100"}
-                </button>
-              </div>
-            );
-          })}
-      </div>
     </>
   );
 }

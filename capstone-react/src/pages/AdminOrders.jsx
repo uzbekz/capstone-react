@@ -3,11 +3,27 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
 
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toDateOnlyString(dateValue) {
+  if (!dateValue) return "";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "";
+  return getLocalDateString(date);
+}
+
 function AdminOrders() {
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterMode, setFilterMode] = useState("today");
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
 
   const token = localStorage.getItem("token");
 
@@ -32,7 +48,27 @@ function AdminOrders() {
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [token]);
+
+  const filteredOrders = orders.filter((order) => {
+    if (filterMode === "all") return true;
+
+    const orderDate = toDateOnlyString(order.createdAt || order.created_at);
+    if (!orderDate) return false;
+
+    if (filterMode === "today") {
+      return orderDate === getLocalDateString();
+    }
+
+    return orderDate === selectedDate;
+  });
+
+  const emptyMessage =
+    filterMode === "all"
+      ? "No orders yet."
+      : filterMode === "today"
+      ? "No orders placed today."
+      : `No orders found for ${selectedDate}.`;
 
   function convertToBase64(buffer) {
     if (!buffer) return "";
@@ -83,6 +119,38 @@ function AdminOrders() {
   return (
     <div className="admin-orders">
       <h1>Manage Orders</h1>
+      <div className="orders-filter-bar">
+        <button
+          type="button"
+          className={`filter-btn ${filterMode === "today" ? "active" : ""}`}
+          onClick={() => {
+            setFilterMode("today");
+            setSelectedDate(getLocalDateString());
+          }}
+        >
+          Today
+        </button>
+
+        <label className="date-picker-label">
+          Pick day:
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setFilterMode("date");
+            }}
+          />
+        </label>
+
+        <button
+          type="button"
+          className={`filter-btn ${filterMode === "all" ? "active" : ""}`}
+          onClick={() => setFilterMode("all")}
+        >
+          All Time
+        </button>
+      </div>
 
       {loading && (
         <div className="loading-container">
@@ -90,11 +158,11 @@ function AdminOrders() {
         </div>
       )}
 
-      {!loading && orders.length === 0 && <p className="empty">No orders yet.</p>}
+      {!loading && filteredOrders.length === 0 && <p className="empty">{emptyMessage}</p>}
 
       {!loading && (
         <div className="orders-container">
-          {orders.map((order) => (
+          {filteredOrders.map((order) => (
             <div key={order.id} className="order">
               <div className="order-header">
                 <div>

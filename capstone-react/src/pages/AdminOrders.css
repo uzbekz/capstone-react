@@ -20,6 +20,57 @@
   font-weight: 700;
 }
 
+.orders-filter-bar {
+  max-width: 1400px;
+  margin: 0 auto 20px auto;
+  padding: 0 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.date-picker-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.date-picker-label input[type="date"] {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 14px;
+}
+
 .loading, .empty {
   text-align: center;
   color: var(--muted);
@@ -262,6 +313,18 @@
 @media (max-width: 768px) {
   .admin-orders {
     padding: 16px 12px;
+  }
+
+  .orders-filter-bar {
+    padding: 0 4px;
+  }
+
+  .date-picker-label {
+    width: 100%;
+  }
+
+  .date-picker-label input[type="date"] {
+    flex: 1;
   }
 
   .order-items-grid {

@@ -21,13 +21,18 @@
 }
 
 .orders-filter-bar {
-  max-width: 1400px;
+  max-width: 820px;
   margin: 0 auto 20px auto;
-  padding: 0 16px;
+  padding: 14px 16px;
   display: flex;
-  gap: 10px;
+  gap: 14px;
   align-items: center;
-  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid rgba(203, 213, 225, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  justify-content: center;
+  flex-wrap: nowrap;
 }
 
 .filter-btn {
@@ -35,11 +40,13 @@
   background: #ffffff;
   color: #0f172a;
   border-radius: 8px;
-  padding: 8px 12px;
+  height: 40px;
+  padding: 0 16px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .filter-btn:hover {
@@ -56,19 +63,23 @@
 .date-picker-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--muted);
+  gap: 10px;
+  font-size: 13px;
+  color: #334155;
   font-weight: 600;
+  padding: 0 2px;
+  white-space: nowrap;
 }
 
 .date-picker-label input[type="date"] {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 8px 10px;
+  height: 40px;
+  padding: 0 12px;
   background: #ffffff;
   color: #0f172a;
   font-size: 14px;
+  min-width: 170px;
 }
 
 .loading, .empty {
@@ -316,15 +327,20 @@
   }
 
   .orders-filter-bar {
-    padding: 0 4px;
+    max-width: 100%;
+    padding: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .date-picker-label {
-    width: 100%;
+    width: auto;
+    justify-content: center;
   }
 
   .date-picker-label input[type="date"] {
-    flex: 1;
+    min-width: 160px;
   }
 
   .order-items-grid {

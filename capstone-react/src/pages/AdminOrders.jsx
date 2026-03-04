@@ -1,5 +1,5 @@
 import "./AdminOrders.css";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
 
@@ -32,7 +32,12 @@ function AdminOrders() {
     if (!token) navigate("/");
   }, [token, navigate]);
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     const res = await fetch("http://localhost:5000/orders/all", {
@@ -44,11 +49,11 @@ function AdminOrders() {
     const data = await res.json();
     setOrders(data);
     setLoading(false);
-  }
+  }, [token]);
 
   useEffect(() => {
     loadOrders();
-  }, [token]);
+  }, [loadOrders]);
 
   const filteredOrders = orders.filter((order) => {
     if (filterMode === "all") return true;

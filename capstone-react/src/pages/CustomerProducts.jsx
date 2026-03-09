@@ -1,7 +1,13 @@
 import "./CustomerProducts.css";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
-import { getProducts, addToCartRequest } from "../api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  getProducts,
+  addToCartRequest,
+  getCart,
+  updateCartItem,
+  removeCartItem,
+} from "../api";
 import loadingGif from "../assets/loading.gif";
 
 function CustomerProducts({ products, setProducts, categories }) {
@@ -9,7 +15,8 @@ function CustomerProducts({ products, setProducts, categories }) {
   const token = localStorage.getItem("token");
 
   const [loading, setLoading] = useState(true);
-  const [addingToCartId, setAddingToCartId] = useState(null);
+  const [cartByProduct, setCartByProduct] = useState({});
+  const cartByProductRef = useRef({});
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
@@ -28,6 +35,37 @@ function CustomerProducts({ products, setProducts, categories }) {
     }
     loadProducts();
   }, [setProducts]);
+
+  async function loadCart() {
+    if (!token) {
+      setCartByProduct({});
+      return;
+    }
+
+    const data = await getCart();
+    if (data.message && !Array.isArray(data)) {
+      setCartByProduct({});
+      return;
+    }
+
+    const mapped = data.reduce((acc, item) => {
+      acc[item.product_id] = {
+        cartItemId: item.id,
+        quantity: item.quantity,
+      };
+      return acc;
+    }, {});
+
+    setCartByProduct(mapped);
+  }
+
+  useEffect(() => {
+    loadCart();
+  }, [token]);
+
+  useEffect(() => {
+    cartByProductRef.current = cartByProduct;
+  }, [cartByProduct]);
 
   const processedProducts = useMemo(() => {
     return products.map((p) => ({
@@ -72,21 +110,142 @@ function CustomerProducts({ products, setProducts, categories }) {
       return;
     }
 
+    const currentEntry = cartByProductRef.current[product.id];
+    const currentQty = currentEntry?.quantity || 0;
+    const increment = Math.min(qty, Math.max(0, product.quantity - currentQty));
+    if (increment <= 0) return;
+
+    setCartByProduct((prev) => {
+      const existing = prev[product.id];
+      return {
+        ...prev,
+        [product.id]: {
+          cartItemId: existing?.cartItemId,
+          quantity: (existing?.quantity || 0) + increment,
+        },
+      };
+    });
+
     try {
-      setAddingToCartId(product.id);
-      const data = await addToCartRequest(product.id, qty);
+      const data = await addToCartRequest(product.id, increment);
       if (data.id) {
-        console.info("Added to cart!");
+        const latestEntry = cartByProductRef.current[product.id];
+
+        if (!latestEntry || latestEntry.quantity <= 0) {
+          await removeCartItem(data.id);
+          return;
+        }
+
+        setCartByProduct((prev) => {
+          const existing = prev[product.id];
+          if (!existing) return prev;
+          return {
+            ...prev,
+            [product.id]: {
+              ...existing,
+              cartItemId: existing.cartItemId || data.id,
+            },
+          };
+        });
+
+        if (
+          typeof data.quantity === "number" &&
+          latestEntry.quantity !== data.quantity
+        ) {
+          await updateCartItem(data.id, latestEntry.quantity);
+        }
       } else {
         console.error(data.message || "Unable to add to cart");
+        setCartByProduct((prev) => {
+          const existing = prev[product.id];
+          const nextQty = Math.max(0, (existing?.quantity || 0) - increment);
+          if (nextQty <= 0) {
+            const { [product.id]: _removed, ...rest } = prev;
+            return rest;
+          }
+          return {
+            ...prev,
+            [product.id]: {
+              cartItemId: existing?.cartItemId,
+              quantity: nextQty,
+            },
+          };
+        });
       }
     } catch (err) {
       console.error(err);
       console.error("Network error while adding to cart");
-    } finally {
-      setAddingToCartId(null);
+      setCartByProduct((prev) => {
+        const existing = prev[product.id];
+        const nextQty = Math.max(0, (existing?.quantity || 0) - increment);
+        if (nextQty <= 0) {
+          const { [product.id]: _removed, ...rest } = prev;
+          return rest;
+        }
+        return {
+          ...prev,
+          [product.id]: {
+            cartItemId: existing?.cartItemId,
+            quantity: nextQty,
+          },
+        };
+      });
     }
   }
+
+  async function decrementCartItem(product) {
+    if (!token) {
+      console.warn("Please login to edit your cart");
+      return;
+    }
+
+    const existing = cartByProductRef.current[product.id];
+    if (!existing || existing.quantity <= 0) return;
+
+    const nextQty = existing.quantity - 1;
+    setCartByProduct((prev) => {
+      const latest = prev[product.id];
+      if (!latest) return prev;
+      if (nextQty <= 0) {
+        const { [product.id]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return {
+        ...prev,
+        [product.id]: {
+          cartItemId: latest.cartItemId,
+          quantity: nextQty,
+        },
+      };
+    });
+
+    if (!existing.cartItemId) return;
+
+    try {
+      if (nextQty === 0) {
+        await removeCartItem(existing.cartItemId);
+      } else {
+        await updateCartItem(existing.cartItemId, nextQty);
+      }
+    } catch (err) {
+      console.error(err);
+      console.error("Network error while updating cart");
+      setCartByProduct((prev) => {
+        const latest = prev[product.id];
+        return {
+          ...prev,
+          [product.id]: {
+            cartItemId: latest?.cartItemId || existing.cartItemId,
+            quantity: (latest?.quantity || 0) + 1,
+          },
+        };
+      });
+    }
+  }
+
+  const cartCount = useMemo(() => {
+    return Object.values(cartByProduct).reduce((sum, item) => sum + item.quantity, 0);
+  }, [cartByProduct]);
 
   return (
     <>
@@ -114,7 +273,9 @@ function CustomerProducts({ products, setProducts, categories }) {
           <option value="quantity-low-to-high">Quantity (low to high)</option>
         </select>
 
-        <Link to="/cart">Cart</Link>
+        <Link to="/cart" className="cart-link">
+          Cart ({cartCount})
+        </Link>
         <Link to="/customerOrders">Order History</Link>
         <Link to="/profile">Profile</Link>
 
@@ -128,70 +289,65 @@ function CustomerProducts({ products, setProducts, categories }) {
         </button>
       </div>
 
-      {addingToCartId !== null ? (
-        <div className="content-loader">
-          <img src={loadingGif} alt="Adding to cart" className="loading-gif" />
-        </div>
-      ) : (
-        <div className="product-array">
-          {loading && (
-            <div className="loading-container">
-              <img src={loadingGif} alt="Loading products" className="loading-gif" />
-            </div>
-          )}
+      <div className="product-array">
+        {loading && (
+          <div className="loading-container">
+            <img src={loadingGif} alt="Loading products" className="loading-gif" />
+          </div>
+        )}
 
-          {!loading && filteredProducts.length === 0 && <h3>No products found.</h3>}
+        {!loading && filteredProducts.length === 0 && <h3>No products found.</h3>}
 
-          {!loading &&
-            filteredProducts.map((product) => {
-              const lowStock = product.quantity < 10;
+        {!loading &&
+          filteredProducts.map((product) => {
+            const cartQty = cartByProduct[product.id]?.quantity || 0;
 
-              return (
-                <div
-                  key={product.id}
-                  className={`product-card${lowStock ? " low-stock" : ""}`}
-                >
-                  {lowStock && <span className="low-stock-badge">Low Stock</span>}
+            return (
+              <div key={product.id} className="product-card">
+                {product.imageSrc ? (
+                  <img src={product.imageSrc} alt={product.name} />
+                ) : (
+                  <div className="product-image-fallback">No Image</div>
+                )}
 
-                  <img
-                    src={product.imageSrc}
-                    width={300}
-                    height={300}
-                    style={{ objectFit: "cover" }}
-                    alt={product.name}
-                  />
-
-                  <h3 className="product-title">{product.name}</h3>
-                  <p className="product-description">{product.description}</p>
-
-                  <div className="product-details">
-                    <p>Category: {product.category}</p>
-                    <p className="product-price">Price: Rs {product.price}</p>
-                    <p>Qty: {product.quantity}</p>
+                <div className="product-content">
+                  <div className="product-header-row">
+                    <h3 className="product-title">{product.name}</h3>
+                    <p className="product-price">₹{Number(product.price).toFixed(2)}</p>
                   </div>
 
-                  <input
-                    type="number"
-                    min="1"
-                    max={product.quantity}
-                    defaultValue="1"
-                    id={`qty-${product.id}`}
-                  />
+                  <p className="product-category">{product.category}</p>
 
-                  <button
-                    onClick={() => {
-                      const qty = Number(document.getElementById(`qty-${product.id}`).value);
-                      addToCart(product, qty);
-                    }}
-                    disabled={addingToCartId === product.id}
-                  >
-                    {addingToCartId === product.id ? "Adding..." : "Add to Cart"}
-                  </button>
+                  <div className="product-bottom-row">
+                    <p className="stock">
+                      Stock: <strong>{product.quantity}</strong>
+                    </p>
+
+                    <div className="qty-stepper">
+                      <button
+                        type="button"
+                        onClick={() => decrementCartItem(product)}
+                        disabled={cartQty <= 0}
+                        aria-label={`Decrease ${product.name}`}
+                      >
+                        -
+                      </button>
+                      <span>{cartQty}</span>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(product, 1)}
+                        disabled={cartQty >= product.quantity}
+                        aria-label={`Increase ${product.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              );
-            })}
-        </div>
-      )}
+              </div>
+            );
+          })}
+      </div>
     </>
   );
 }

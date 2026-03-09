@@ -1,0 +1,6 @@
+Product Name: Logitech MX Master 3S Wireless Mouse
+Description: Premium ergonomic wireless mouse with ultra-fast MagSpeed scrolling, 8000 DPI precision tracking (works on any surface including glass), quiet clicks, customizable buttons, USB-C rechargeable battery (up to 70 days), Bluetooth + USB receiver connectivity, and multi-device flow support. Ideal for productivity, office work, design, and long-hour computer use.
+Category: Existing Category → Office Supplies / Stationery (or create a sub-category like Peripherals if your system allows)
+Price: ₹8,499 (or $99 USD)
+Quantity: 120 units
+Weight: 0.141 kg

@@ -94,10 +94,14 @@ function AdminOrders() {
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to dispatch order");
+      }
+
       console.info(data.message);
       await loadOrders();
     } catch (err) {
-      console.error(err.message || "Failed to dispatch order");
+      alert(err.message || "Failed to dispatch order");
       setLoading(false);
     }
   }

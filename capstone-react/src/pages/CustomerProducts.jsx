@@ -220,7 +220,7 @@ function CustomerProducts({ products, setProducts, categories }) {
     });
 
     if (!existing.cartItemId) return;
-
+    //checking
     try {
       if (nextQty === 0) {
         await removeCartItem(existing.cartItemId);

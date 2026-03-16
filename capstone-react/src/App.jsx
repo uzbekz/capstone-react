@@ -14,6 +14,7 @@ import CustomerProfile from './pages/CustomerProfile.jsx'
 import OrderDetails from './pages/OrderDetails.jsx'
 import AdminApprovals from './pages/AdminApprovals.jsx'
 import ForgotPassword from "./pages/ForgotPassword.jsx"
+import Breadcrumbs from "./components/Breadcrumbs.jsx"
 
 function App() {
   const [productId, setProductId] = useState(null)
@@ -30,6 +31,7 @@ function App() {
   
   return (
     <>
+      <Breadcrumbs />
       <Routes>
         <Route path="/" element={<Login/>}/>
         <Route path="/forgot-password" element={<ForgotPassword />}/>

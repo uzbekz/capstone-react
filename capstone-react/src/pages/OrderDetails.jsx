@@ -107,9 +107,9 @@ function OrderDetails() {
       { key: "pending", label: "Pending" },
       { key: "dispatched", label: "Dispatched" },
       { key: "delivered", label: "Delivered" },
-      { key: "returned", label: "Returned" }
+      { key: "returned", label: "Returned" },
     ];
-    const currentIndex = steps.findIndex(s => s.key === order.status);
+    const currentIndex = steps.findIndex((step) => step.key === order.status);
 
     return (
       <div className="timeline">
@@ -225,7 +225,7 @@ function OrderDetails() {
         <div className="items-panel">
           <h3>Items</h3>
           <div className="items">
-            {order.items.map(item => (
+            {order.items.map((item) => (
               <div key={item.id} className="item-row">
                 <div className="item-main">
                   <p className="item-name">{item.Product.name}</p>
@@ -238,9 +238,10 @@ function OrderDetails() {
         </div>
 
         <div className="details-actions">
-          <button className="back-btn" onClick={() => navigate("/customerOrders")}>Back to Orders</button>
           {order.status === "pending" && (
-            <button className="btn-cancel" onClick={cancel}>Cancel Order</button>
+            <button className="btn-cancel" onClick={cancel}>
+              Cancel Order
+            </button>
           )}
           {order.status === "delivered" && (
             <button

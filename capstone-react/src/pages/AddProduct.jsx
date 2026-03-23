@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./AddProduct.css";
 import { getProductById, addProduct, updateProduct } from "../api";
 import loadingGif from "../assets/loading.gif";
@@ -187,9 +187,6 @@ function AddProduct({ productId, setProductId, categories }) {
               </button>
             </form>
 
-            <div className="form-footer">
-              <Link to="/mainPage">&larr; Back to Main Page</Link>
-            </div>
           </>
         )}
       </div>

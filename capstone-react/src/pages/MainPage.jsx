@@ -1,14 +1,13 @@
 import "./MainPage.css";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
-import { deleteProduct, getProducts, getProfile, updateProduct } from "../api.js";
+import { deleteProduct, getProducts, updateProduct } from "../api.js";
 import loadingGif from "../assets/loading.gif";
 
 function MainPage({ setProductId, categories, products, setProducts }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [gridLoading, setGridLoading] = useState(false);
   const [restockedProducts, setRestockedProducts] = useState({});
@@ -25,18 +24,6 @@ function MainPage({ setProductId, categories, products, setProducts }) {
     }
     loadProducts();
   }, [setProducts]);
-
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const profile = await getProfile();
-        setIsPrimaryAdmin(profile.role === "product_manager" && profile.id === 1);
-      } catch {
-        setIsPrimaryAdmin(false);
-      }
-    }
-    loadProfile();
-  }, []);
 
   const processedProducts = useMemo(() => {
     return products.map((p) => ({
@@ -148,20 +135,6 @@ function MainPage({ setProductId, categories, products, setProducts }) {
           <option value="quantity-low-to-high">Qty low-high</option>
           <option value="quantity-high-to-low">Qty high-low</option>
         </select>
-
-        <Link to="/adminOrders">Manage Orders</Link>
-        <Link to="/addProduct">Add Product</Link>
-        <Link to="/dashboard">Dashboard</Link>
-        {isPrimaryAdmin && <Link to="/adminApprovals">Admin Requests</Link>}
-
-        <button
-          onClick={() => {
-            localStorage.clear();
-            navigate("/");
-          }}
-        >
-          Logout
-        </button>
       </div>
 
       {gridLoading ? (

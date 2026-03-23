@@ -15,6 +15,8 @@ import OrderDetails from './pages/OrderDetails.jsx'
 import AdminApprovals from './pages/AdminApprovals.jsx'
 import ForgotPassword from "./pages/ForgotPassword.jsx"
 import Breadcrumbs from "./components/Breadcrumbs.jsx"
+import AppHeader from "./components/AppHeader.jsx"
+import "./App.css"
 
 function App() {
   const [productId, setProductId] = useState(null)
@@ -31,6 +33,7 @@ function App() {
   
   return (
     <>
+      <AppHeader />
       <Breadcrumbs />
       <Routes>
         <Route path="/" element={<Login/>}/>

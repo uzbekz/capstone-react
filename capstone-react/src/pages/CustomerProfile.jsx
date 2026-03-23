@@ -29,14 +29,17 @@ function CustomerProfile() {
 
   return (
     <div className="profile-container">
-      <h2>👤 My Profile</h2>
+      <h2>My Profile</h2>
       <div className="profile-card">
-        <p><strong>Email:</strong> {profile.email}</p>
-        <p><strong>Role:</strong> {profile.role}</p>
-        <p><strong>Member since:</strong> {new Date(profile.created_at).toLocaleDateString()}</p>
-      </div>
-      <div style={{ marginTop: 20 }}>
-        <a href="/customerProducts" className="back-link">⬅ Back to Home</a>
+        <p>
+          <strong>Email:</strong> {profile.email}
+        </p>
+        <p>
+          <strong>Role:</strong> {profile.role}
+        </p>
+        <p>
+          <strong>Member since:</strong> {new Date(profile.created_at).toLocaleDateString()}
+        </p>
       </div>
     </div>
   );

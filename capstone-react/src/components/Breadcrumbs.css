@@ -1,5 +1,10 @@
 .breadcrumbs {
-  padding: 18px 24px 0;
+  position: sticky;
+  top: var(--app-header-height, 74px);
+  z-index: 900;
+  padding: 14px 24px 0;
+  background: rgba(248, 250, 252, 0.92);
+  backdrop-filter: blur(12px);
 }
 
 .breadcrumbs-list {
@@ -8,8 +13,9 @@
   align-items: center;
   gap: 8px;
   margin: 0;
-  padding: 0;
+  padding: 10px 0 12px;
   list-style: none;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 .breadcrumbs-item {

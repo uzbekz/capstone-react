@@ -1,11 +1,11 @@
 import "./Cart.css";
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   getCart,
   updateCartItem,
   removeCartItem,
-  clearCartRequest
+  clearCartRequest,
 } from "../api";
 import loadingGif from "../assets/loading.gif";
 
@@ -22,11 +22,10 @@ function Cart() {
       setLoading(true);
       const data = await getCart();
       if (data.message && !Array.isArray(data)) {
-        // error response
         console.error(data.message || "Failed to load cart");
         setCart([]);
       } else {
-        const items = data.map(item => ({
+        const items = data.map((item) => ({
           cartItemId: item.id,
           id: item.product_id,
           name: item.Product?.name || "",
@@ -34,7 +33,7 @@ function Cart() {
           qty: item.quantity,
           imageSrc: item.Product?.image
             ? `data:image/jpeg;base64,${item.Product.image}`
-            : ""
+            : "",
         }));
         setCart(items);
       }
@@ -54,7 +53,6 @@ function Cart() {
     }
   }, [token, navigate, fetchCart]);
 
-  
   const totalPrice = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   }, [cart]);
@@ -68,8 +66,8 @@ function Cart() {
         console.error(data.message || "Could not update quantity");
       } else {
         setCart((prev) =>
-          prev.map((it, i) =>
-            i === index ? { ...it, qty: Number(qty) } : it,
+          prev.map((currentItem, itemIndex) =>
+            itemIndex === index ? { ...currentItem, qty: Number(qty) } : currentItem,
           ),
         );
       }
@@ -85,11 +83,8 @@ function Cart() {
     const item = cart[index];
     try {
       setActionLoading(true);
-      const data = await removeCartItem(item.cartItemId);
-      if (data.message && !data.id) {
-        // removal success returns {message:...} so not an error
-      }
-      setCart((prev) => prev.filter((_, i) => i !== index));
+      await removeCartItem(item.cartItemId);
+      setCart((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
     } catch (err) {
       console.error(err);
       console.error("Network error");
@@ -165,7 +160,7 @@ function Cart() {
   return (
     <>
       <div style={{ padding: "24px" }}>
-        <h2>🛒 Your Cart</h2>
+        <h2>Your Cart</h2>
 
         {loading && (
           <div className="loading-container">
@@ -200,9 +195,12 @@ function Cart() {
 
                 <div className="item-details">
                   <p className="item-name">{item.name}</p>
-                  <p className="item-price">₹{Number(item.price).toFixed(2)}</p>
+                  <p className="item-price">Rs {Number(item.price).toFixed(2)}</p>
                   <div className="item-qty-control">
-                    <label htmlFor={`qty-${item.id}`} style={{ fontSize: "13px", color: "var(--muted)" }}>
+                    <label
+                      htmlFor={`qty-${item.id}`}
+                      style={{ fontSize: "13px", color: "var(--muted)" }}
+                    >
                       Qty:
                     </label>
                     <input
@@ -213,17 +211,14 @@ function Cart() {
                       onChange={(e) => updateQty(index, e.target.value)}
                     />
                     <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                      = ₹{(Number(item.price) * item.qty).toFixed(2)}
+                      = Rs {(Number(item.price) * item.qty).toFixed(2)}
                     </span>
                   </div>
                 </div>
 
                 <div className="item-actions">
-                  <button
-                    className="btn-remove"
-                    onClick={() => removeItem(index)}
-                  >
-                    ✕ Remove
+                  <button className="btn-remove" onClick={() => removeItem(index)}>
+                    Remove
                   </button>
                 </div>
               </div>
@@ -239,28 +234,24 @@ function Cart() {
                 </div>
                 <div className="summary-row">
                   <span className="summary-label">Subtotal:</span>
-                  <span className="summary-value">₹{totalPrice.toFixed(2)}</span>
+                  <span className="summary-value">Rs {totalPrice.toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="summary-total">
                 <span>Total</span>
-                <span className="summary-value">₹{totalPrice.toFixed(2)}</span>
+                <span className="summary-value">Rs {totalPrice.toFixed(2)}</span>
               </div>
 
               <button className="btn-checkout" onClick={checkout}>
-                ✓ Checkout
+                Checkout
               </button>
               <button className="btn-clear" onClick={clearCart}>
-                🗑 Clear Cart
+                Clear Cart
               </button>
             </div>
           )}
         </div>
-
-        <Link to="/customerProducts" className="back-link">
-          ⬅ Back to Products
-        </Link>
       </div>
     </>
   );

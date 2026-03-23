@@ -1,6 +1,6 @@
 import "./AdminOrders.css";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
 
 function getLocalDateString(date = new Date()) {
@@ -27,7 +27,6 @@ function AdminOrders() {
 
   const token = localStorage.getItem("token");
 
-  
   useEffect(() => {
     if (!token) navigate("/");
   }, [token, navigate]);
@@ -72,14 +71,16 @@ function AdminOrders() {
     filterMode === "all"
       ? "No orders yet."
       : filterMode === "today"
-      ? "No orders placed today."
-      : `No orders found for ${selectedDate}.`;
+        ? "No orders placed today."
+        : `No orders found for ${selectedDate}.`;
 
   function convertToBase64(buffer) {
     if (!buffer) return "";
     const bytes = new Uint8Array(buffer.data);
     let binary = "";
-    bytes.forEach((b) => (binary += String.fromCharCode(b)));
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
     return `data:image/jpeg;base64,${btoa(binary)}`;
   }
 
@@ -193,8 +194,10 @@ function AdminOrders() {
                     />
                     <div className="item-details">
                       <h4>{item.Product.name}</h4>
-                      <p className="qty">Qty: <strong>{item.quantity}</strong></p>
-                      <p className="price">₹{item.price} each</p>
+                      <p className="qty">
+                        Qty: <strong>{item.quantity}</strong>
+                      </p>
+                      <p className="price">Rs {item.price} each</p>
                     </div>
                   </div>
                 ))}
@@ -202,17 +205,24 @@ function AdminOrders() {
 
               <div className="order-footer">
                 <div className="order-info">
-                  <p><span>Total:</span> <strong>₹{order.total_price}</strong></p>
-                  <p><span>Date:</span> <strong>{new Date(order.createdAt || order.created_at).toLocaleDateString()}</strong></p>
+                  <p>
+                    <span>Total:</span> <strong>Rs {order.total_price}</strong>
+                  </p>
+                  <p>
+                    <span>Date:</span>{" "}
+                    <strong>
+                      {new Date(order.createdAt || order.created_at).toLocaleDateString()}
+                    </strong>
+                  </p>
                 </div>
 
                 {order.status === "pending" && (
                   <div className="actions">
                     <button className="btn-dispatch" onClick={() => dispatchOrder(order.id)}>
-                      ✓ Dispatch
+                      Dispatch
                     </button>
                     <button className="btn-cancel" onClick={() => cancelOrder(order.id)}>
-                      ✕ Cancel
+                      Cancel
                     </button>
                   </div>
                 )}
@@ -221,10 +231,6 @@ function AdminOrders() {
           ))}
         </div>
       )}
-
-      <Link to="/mainPage" className="back-link">
-        ⬅ Back to Admin Dashboard
-      </Link>
     </div>
   );
 }

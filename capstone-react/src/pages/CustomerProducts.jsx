@@ -1,5 +1,5 @@
 import "./CustomerProducts.css";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getProducts,
@@ -243,10 +243,6 @@ function CustomerProducts({ products, setProducts, categories }) {
     }
   }
 
-  const cartCount = useMemo(() => {
-    return Object.values(cartByProduct).reduce((sum, item) => sum + item.quantity, 0);
-  }, [cartByProduct]);
-
   return (
     <>
       <div className="toolbar">
@@ -272,21 +268,6 @@ function CustomerProducts({ products, setProducts, categories }) {
           <option value="quantity-high-to-low">Quantity (high to low)</option>
           <option value="quantity-low-to-high">Quantity (low to high)</option>
         </select>
-
-        <Link to="/cart" className="cart-link">
-          Cart ({cartCount})
-        </Link>
-        <Link to="/customerOrders">Order History</Link>
-        <Link to="/profile">Profile</Link>
-
-        <button
-          onClick={() => {
-            localStorage.removeItem("token");
-            navigate("/");
-          }}
-        >
-          Logout
-        </button>
       </div>
 
       <div className="product-array">

@@ -1,6 +1,5 @@
 import "./DashBoard.css";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { getDashboardReports, getProducts } from "../api.js";
 import Chart from "chart.js/auto";
 import loadingGif from "../assets/loading.gif";
@@ -19,8 +18,8 @@ function Dashboard({ products }) {
   const chartsRef = useRef([]);
 
   const lowStockItems = useMemo(
-    () => localProducts.filter(p => p.quantity < 10).sort((a, b) => a.quantity - b.quantity),
-    [localProducts]
+    () => localProducts.filter((product) => product.quantity < 10).sort((a, b) => a.quantity - b.quantity),
+    [localProducts],
   );
 
   useEffect(() => {
@@ -52,26 +51,30 @@ function Dashboard({ products }) {
   }, [products, token]);
 
   const { categoryMap, topProducts, stockProducts } = useMemo(() => {
-    const categoryMap = {};
-    localProducts.forEach(p => {
-      categoryMap[p.category] = (categoryMap[p.category] || 0) + 1;
+    const nextCategoryMap = {};
+    localProducts.forEach((product) => {
+      nextCategoryMap[product.category] = (nextCategoryMap[product.category] || 0) + 1;
     });
 
-    const topProducts = [...localProducts]
+    const nextTopProducts = [...localProducts]
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
 
-    const stockProducts = [...localProducts]
+    const nextStockProducts = [...localProducts]
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 10);
 
-    return { categoryMap, topProducts, stockProducts };
+    return {
+      categoryMap: nextCategoryMap,
+      topProducts: nextTopProducts,
+      stockProducts: nextStockProducts,
+    };
   }, [localProducts]);
 
   useEffect(() => {
     if (!localProducts.length) return;
 
-    chartsRef.current.forEach(chart => chart.destroy());
+    chartsRef.current.forEach((chart) => chart.destroy());
     chartsRef.current = [];
 
     const categoryChart = new Chart(categoryChartRef.current, {
@@ -81,88 +84,91 @@ function Dashboard({ products }) {
         datasets: [
           {
             label: "Products per Category",
-            data: Object.values(categoryMap)
-          }
-        ]
-      }
+            data: Object.values(categoryMap),
+          },
+        ],
+      },
     });
 
     const stockChart = new Chart(stockChartRef.current, {
       type: "pie",
       data: {
-        labels: stockProducts.map(p => p.name),
+        labels: stockProducts.map((product) => product.name),
         datasets: [
           {
             label: "Stock Distribution (Top 10)",
-            data: stockProducts.map(p => p.quantity)
-          }
-        ]
-      }
+            data: stockProducts.map((product) => product.quantity),
+          },
+        ],
+      },
     });
 
     const topChart = new Chart(topProductsChartRef.current, {
       type: "bar",
       data: {
-        labels: topProducts.map(p => p.name),
+        labels: topProducts.map((product) => product.name),
         datasets: [
           {
             label: "Top 5 Stocked Products",
-            data: topProducts.map(p => p.quantity)
-          }
-        ]
-      }
+            data: topProducts.map((product) => product.quantity),
+          },
+        ],
+      },
     });
 
     if (reports.revenueByMonth) {
       const revChart = new Chart(revenueChartRef.current, {
         type: "line",
         data: {
-          labels: reports.revenueByMonth.map(r => r.month),
+          labels: reports.revenueByMonth.map((item) => item.month),
           datasets: [
             {
               label: "Revenue",
-              data: reports.revenueByMonth.map(r => r.revenue),
+              data: reports.revenueByMonth.map((item) => item.revenue),
               borderColor: "#2563eb",
               backgroundColor: "rgba(37,99,235,0.2)",
-              tension: 0.3
-            }
-          ]
+              tension: 0.3,
+            },
+          ],
         },
-        options: { scales: { y: { beginAtZero: true } } }
+        options: { scales: { y: { beginAtZero: true } } },
       });
       chartsRef.current.push(revChart);
     }
 
     if (reports.monthlyOrders) {
-      const ordChart = new Chart(ordersChartRef.current, {
+      const ordersChart = new Chart(ordersChartRef.current, {
         type: "bar",
         data: {
-          labels: reports.monthlyOrders.map(r => r.month),
+          labels: reports.monthlyOrders.map((item) => item.month),
           datasets: [
             {
               label: "Orders",
-              data: reports.monthlyOrders.map(r => r.orders),
-              backgroundColor: "#10b981"
-            }
-          ]
+              data: reports.monthlyOrders.map((item) => item.orders),
+              backgroundColor: "#10b981",
+            },
+          ],
         },
-        options: { scales: { y: { beginAtZero: true } } }
+        options: { scales: { y: { beginAtZero: true } } },
       });
-      chartsRef.current.push(ordChart);
+      chartsRef.current.push(ordersChart);
     }
 
     chartsRef.current.push(categoryChart, stockChart, topChart);
 
     return () => {
-      chartsRef.current.forEach(chart => chart.destroy());
+      chartsRef.current.forEach((chart) => chart.destroy());
       chartsRef.current = [];
     };
   }, [categoryMap, topProducts, stockProducts, reports, localProducts.length]);
 
   const totalProducts = localProducts.length;
-  const totalStock = localProducts.reduce((sum, p) => sum + p.quantity, 0);
-  const lowStock = localProducts.filter(p => p.quantity < 10).length;
-  const inventoryValue = localProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
+  const totalStock = localProducts.reduce((sum, product) => sum + product.quantity, 0);
+  const lowStock = localProducts.filter((product) => product.quantity < 10).length;
+  const inventoryValue = localProducts.reduce(
+    (sum, product) => sum + product.price * product.quantity,
+    0,
+  );
 
   if (loading) {
     return (
@@ -204,7 +210,7 @@ function Dashboard({ products }) {
         <div className="card">
           <span className="icon">V</span>
           <h3>Inventory Value</h3>
-          <p>₹{inventoryValue.toFixed(2)}</p>
+          <p>Rs {inventoryValue.toFixed(2)}</p>
         </div>
 
         {reports.mostSoldProduct && (
@@ -261,21 +267,17 @@ function Dashboard({ products }) {
               </tr>
             </thead>
             <tbody>
-              {lowStockItems.map(p => (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  <td>{p.category}</td>
-                  <td>{p.quantity}</td>
+              {lowStockItems.map((product) => (
+                <tr key={product.id}>
+                  <td>{product.name}</td>
+                  <td>{product.category}</td>
+                  <td>{product.quantity}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </section>
       )}
-
-      <Link to="/mainPage" className="back-link">
-        Back to Products
-      </Link>
     </div>
   );
 }

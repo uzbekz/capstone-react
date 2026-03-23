@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { getPendingAdminRequests, getProfile, reviewAdminRequest } from "../api";
 import "./AdminApprovals.css";
 import loadingGif from "../assets/loading.gif";
@@ -52,7 +52,6 @@ function AdminApprovals() {
       <div className="admin-approvals-card">
         <div className="admin-approvals-header">
           <h2>Admin Approval Requests</h2>
-          <Link to="/mainPage">Back to Main Page</Link>
         </div>
 
         {loading && (

@@ -65,7 +65,7 @@ router.post("/register", async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
     const requestedRole = role === "product_manager" ? "product_manager" : "customer";
-    const adminStatus = requestedRole === "product_manager" ? "pending" : "approved";
+    const adminStatus = "pending";
 
     await User.create({
       email,
@@ -74,13 +74,9 @@ router.post("/register", async (req, res) => {
       admin_status: adminStatus
     });
 
-    if (requestedRole === "product_manager") {
-      return res.json({
-        message: "Registration received. Admin access is pending approval from the primary admin."
-      });
-    }
-
-    res.json({ message: "User registered successfully" });
+    return res.json({
+      message: "Registration received. Your account is pending approval from an authorized admin."
+    });
 
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -98,18 +94,22 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-    if (user.role === "product_manager" && user.id !== 1) {
-      if (user.admin_status === "pending") {
-        return res.status(403).json({
-          message: "Admin request pending approval. You can login after primary admin approval."
-        });
-      }
+    if (user.admin_status === "pending") {
+      return res.status(403).json({
+        message: "Your registration is pending approval. Please wait for an admin to approve your account."
+      });
+    }
 
-      if (user.admin_status === "rejected") {
-        return res.status(403).json({
-          message: "Admin request was rejected by the primary admin."
-        });
-      }
+    if (user.admin_status === "rejected") {
+      return res.status(403).json({
+        message: "Your registration request was rejected by an admin."
+      });
+    }
+
+    if (!user.isValid) {
+      return res.status(403).json({
+        message: "Your account is temporarily disabled. Please contact an admin."
+      });
     }
 
     const token = jwt.sign(
@@ -197,23 +197,23 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
-// Primary admin (id=1) reviews pending admin requests
+// Approved product managers can review pending registrations
 router.get("/admin-requests", authenticate, authorize("product_manager"), async (req, res) => {
   try {
-    if (req.user.id !== 1) {
-      return res.status(403).json({ message: "Only the primary admin can access this route" });
+    const currentAdmin = await User.findByPk(req.user.id);
+    if (!currentAdmin || currentAdmin.admin_status !== "approved") {
+      return res.status(403).json({ message: "Only approved admins can access this route" });
     }
 
-    const pendingAdmins = await User.findAll({
+    const pendingUsers = await User.findAll({
       where: {
-        role: "product_manager",
         admin_status: "pending"
       },
-      attributes: ["id", "email", "admin_status", "created_at"],
+      attributes: ["id", "email", "role", "admin_status", "created_at"],
       order: [["created_at", "ASC"]]
     });
 
-    res.json(pendingAdmins);
+    res.json(pendingUsers);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -221,8 +221,9 @@ router.get("/admin-requests", authenticate, authorize("product_manager"), async 
 
 router.patch("/admin-requests/:id", authenticate, authorize("product_manager"), async (req, res) => {
   try {
-    if (req.user.id !== 1) {
-      return res.status(403).json({ message: "Only the primary admin can access this route" });
+    const currentAdmin = await User.findByPk(req.user.id);
+    if (!currentAdmin || currentAdmin.admin_status !== "approved") {
+      return res.status(403).json({ message: "Only approved admins can access this route" });
     }
 
     const { decision } = req.body;
@@ -235,15 +236,15 @@ router.patch("/admin-requests/:id", authenticate, authorize("product_manager"), 
     if (targetUser.id === 1) {
       return res.status(400).json({ message: "Primary admin cannot be modified" });
     }
-    if (targetUser.role !== "product_manager") {
-      return res.status(400).json({ message: "Target user is not an admin requester" });
+    if (targetUser.admin_status !== "pending") {
+      return res.status(400).json({ message: "Only pending requests can be reviewed" });
     }
 
     const nextStatus = decision === "approve" ? "approved" : "rejected";
     await targetUser.update({ admin_status: nextStatus });
 
     res.json({
-      message: decision === "approve" ? "Admin request approved" : "Admin request rejected"
+      message: decision === "approve" ? "User request approved" : "User request rejected"
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

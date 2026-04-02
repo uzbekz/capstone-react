@@ -1,6 +1,6 @@
 import "./DashBoard.css";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getDashboardReports, getProducts } from "../api.js";
+import { getAppSettings, getDashboardReports, getProducts } from "../api.js";
 import Chart from "chart.js/auto";
 import loadingGif from "../assets/loading.gif";
 
@@ -8,6 +8,7 @@ function Dashboard({ products }) {
   const token = localStorage.getItem("token");
   const [localProducts, setLocalProducts] = useState([]);
   const [reports, setReports] = useState({});
+  const [settings, setSettings] = useState({ low_stock_threshold: 10 });
   const [loading, setLoading] = useState(true);
 
   const categoryChartRef = useRef(null);
@@ -18,8 +19,11 @@ function Dashboard({ products }) {
   const chartsRef = useRef([]);
 
   const lowStockItems = useMemo(
-    () => localProducts.filter((product) => product.quantity < 10).sort((a, b) => a.quantity - b.quantity),
-    [localProducts],
+    () =>
+      localProducts
+        .filter((product) => product.quantity < settings.low_stock_threshold)
+        .sort((a, b) => a.quantity - b.quantity),
+    [localProducts, settings.low_stock_threshold],
   );
 
   useEffect(() => {
@@ -31,12 +35,18 @@ function Dashboard({ products }) {
         const productsPromise =
           products && products.length ? Promise.resolve(products) : getProducts();
         const reportsPromise = token ? getDashboardReports() : Promise.resolve({});
+        const settingsPromise = token ? getAppSettings() : Promise.resolve({ low_stock_threshold: 10 });
 
-        const [productData, reportData] = await Promise.all([productsPromise, reportsPromise]);
+        const [productData, reportData, settingsData] = await Promise.all([
+          productsPromise,
+          reportsPromise,
+          settingsPromise
+        ]);
         if (cancelled) return;
 
         setLocalProducts(productData || []);
         setReports(reportData || {});
+        setSettings({ low_stock_threshold: settingsData?.low_stock_threshold || 10 });
       } catch (err) {
         console.error(err);
       } finally {
@@ -164,7 +174,7 @@ function Dashboard({ products }) {
 
   const totalProducts = localProducts.length;
   const totalStock = localProducts.reduce((sum, product) => sum + product.quantity, 0);
-  const lowStock = localProducts.filter((product) => product.quantity < 10).length;
+  const lowStock = localProducts.filter((product) => product.quantity < settings.low_stock_threshold).length;
   const inventoryValue = localProducts.reduce(
     (sum, product) => sum + product.price * product.quantity,
     0,
@@ -257,7 +267,7 @@ function Dashboard({ products }) {
 
       {lowStockItems.length > 0 && (
         <section className="low-stock-table">
-          <h3>Low stock items (&lt; 10 units)</h3>
+          <h3>Low stock items (&lt; {settings.low_stock_threshold} units)</h3>
           <table>
             <thead>
               <tr>

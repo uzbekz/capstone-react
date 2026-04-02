@@ -9,14 +9,42 @@ import User from './models/User.js';
 import Order from "./models/Order.js";
 import OrderItem from "./models/OrderItem.js";
 import Cart from "./models/Cart.js";
+import AppSetting from "./models/AppSetting.js";
 import { Op } from "sequelize";
 
-const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS || 7);
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const DEFAULT_APP_SETTINGS = {
+  return_window_days: 7,
+  delivery_min_minutes: 2,
+  delivery_max_minutes: 10,
+  low_stock_threshold: 10,
+  default_restock_increment: 100,
+  max_cart_quantity: 10
+};
+
+async function getAppSettingsMap() {
+  const rows = await AppSetting.findAll();
+  const settings = { ...DEFAULT_APP_SETTINGS };
+
+  rows.forEach((row) => {
+    const numericValue = Number(row.value);
+    settings[row.key] = Number.isNaN(numericValue) ? row.value : numericValue;
+  });
+
+  return settings;
+}
+
+async function getNumericSetting(key) {
+  const row = await AppSetting.findByPk(key);
+  if (!row) return DEFAULT_APP_SETTINGS[key];
+  const numericValue = Number(row.value);
+  return Number.isNaN(numericValue) ? DEFAULT_APP_SETTINGS[key] : numericValue;
+}
 
 function getReturnDeadline(order) {
   if (!order?.delivered_at) return null;
-  return new Date(new Date(order.delivered_at).getTime() + RETURN_WINDOW_DAYS * MS_PER_DAY);
+  const returnWindowDays = Number(order.return_window_days || DEFAULT_APP_SETTINGS.return_window_days);
+  return new Date(new Date(order.delivered_at).getTime() + returnWindowDays * MS_PER_DAY);
 }
 
 function canReturnOrder(order) {
@@ -27,9 +55,10 @@ function canReturnOrder(order) {
 
 function serializeOrderWithReturnMeta(order) {
   const deadline = getReturnDeadline(order);
+  const orderData = typeof order.toJSON === "function" ? order.toJSON() : order;
   return {
-    ...order.toJSON(),
-    return_window_days: RETURN_WINDOW_DAYS,
+    ...orderData,
+    return_window_days: Number(orderData.return_window_days || DEFAULT_APP_SETTINGS.return_window_days),
     return_deadline: deadline,
     can_return: canReturnOrder(order)
   };
@@ -64,7 +93,18 @@ sequelize.authenticate()
 
   //creats the users table if not exits and connects to the table
 sequelize.sync({ alter: true })
-  .then(() => console.log("All models synced (tables created)"))
+  .then(async () => {
+    const existingSettings = await AppSetting.findAll({ attributes: ["key"] });
+    const existingKeys = new Set(existingSettings.map((setting) => setting.key));
+
+    await Promise.all(
+      Object.entries(DEFAULT_APP_SETTINGS)
+        .filter(([key]) => !existingKeys.has(key))
+        .map(([key, value]) => AppSetting.create({ key, value: String(value) }))
+    );
+
+    console.log("All models synced (tables created)");
+  })
   .catch(err => console.error("Sync error:", err))
 
 // Public routes
@@ -239,6 +279,7 @@ app.get(
         where: { customer_id: customerId },
         order: [["created_at", "DESC"]]
       });
+      const returnWindowDays = await getNumericSetting("return_window_days");
 
       const result = [];
 
@@ -263,7 +304,10 @@ app.get(
         });
 
         result.push({
-          ...serializeOrderWithReturnMeta(order),
+          ...serializeOrderWithReturnMeta({
+            ...order.toJSON(),
+            return_window_days: returnWindowDays
+          }),
           items: itemsWithBase64
         });
       }
@@ -286,6 +330,7 @@ app.get(
       const orders = await Order.findAll({
         order: [["created_at", "DESC"]]
       });
+      const returnWindowDays = await getNumericSetting("return_window_days");
 
       const result = [];
 
@@ -298,7 +343,10 @@ app.get(
         });
 
         result.push({
-          ...serializeOrderWithReturnMeta(order),
+          ...serializeOrderWithReturnMeta({
+            ...order.toJSON(),
+            return_window_days: returnWindowDays
+          }),
           items
         });
       }
@@ -344,8 +392,11 @@ app.patch(
         });
       }
 
-      // compute randomized delivery ETA between 2 and 10 minutes
-      const minutes = Math.floor(Math.random() * 9) + 2; // 2..10
+      const deliveryMinMinutes = await getNumericSetting("delivery_min_minutes");
+      const deliveryMaxMinutes = await getNumericSetting("delivery_max_minutes");
+      const minMinutes = Math.min(deliveryMinMinutes, deliveryMaxMinutes);
+      const maxMinutes = Math.max(deliveryMinMinutes, deliveryMaxMinutes);
+      const minutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
       const deliveredAt = new Date(Date.now() + minutes * 60 * 1000);
 
       await order.update({ status: "dispatched", delivered_at: deliveredAt });
@@ -409,15 +460,26 @@ app.post(
     try {
       const { product_id, quantity } = req.body;
       const userId = req.user.id;
+      const maxCartQuantity = await getNumericSetting("max_cart_quantity");
       const product = await Product.findByPk(product_id);
       if (!product) return res.status(404).json({ message: "Product not found" });
       if (quantity <= 0) return res.status(400).json({ message: "Invalid quantity" });
       // upsert
       let cartItem = await Cart.findOne({ where: { user_id: userId, product_id } });
       if (cartItem) {
+        if (cartItem.quantity + quantity > maxCartQuantity) {
+          return res.status(400).json({
+            message: `You can add up to ${maxCartQuantity} units of a product to your cart`
+          });
+        }
         cartItem.quantity += quantity;
         await cartItem.save();
       } else {
+        if (quantity > maxCartQuantity) {
+          return res.status(400).json({
+            message: `You can add up to ${maxCartQuantity} units of a product to your cart`
+          });
+        }
         cartItem = await Cart.create({
           user_id: userId,
           product_id,
@@ -439,11 +501,17 @@ app.put(
   async (req, res) => {
     try {
       const { quantity } = req.body;
+      const maxCartQuantity = await getNumericSetting("max_cart_quantity");
       const cartItem = await Cart.findByPk(req.params.id);
       if (!cartItem || cartItem.user_id !== req.user.id) {
         return res.status(404).json({ message: "Cart item not found" });
       }
       if (quantity <= 0) return res.status(400).json({ message: "Invalid quantity" });
+      if (quantity > maxCartQuantity) {
+        return res.status(400).json({
+          message: `You can add up to ${maxCartQuantity} units of a product to your cart`
+        });
+      }
       cartItem.quantity = quantity;
       await cartItem.save();
       res.json(cartItem);
@@ -494,9 +562,165 @@ app.get(
   async (req, res) => {
     try {
       const user = await User.findByPk(req.user.id, {
-        attributes: ["id", "email", "role", "created_at"]
+        attributes: ["id", "email", "role", "admin_status", "isValid", "created_at"]
       });
       res.json(user);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.get(
+  "/users",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const currentAdmin = await User.findByPk(req.user.id);
+      if (!currentAdmin || currentAdmin.admin_status !== "approved") {
+        return res.status(403).json({ message: "Only approved admins can access this route" });
+      }
+
+      const users = await User.findAll({
+        attributes: ["id", "email", "role", "admin_status", "isValid", "created_at"],
+        order: [["created_at", "DESC"]]
+      });
+
+      res.json(users);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.get(
+  "/settings",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const currentAdmin = await User.findByPk(req.user.id);
+      if (!currentAdmin || currentAdmin.admin_status !== "approved") {
+        return res.status(403).json({ message: "Only approved admins can access this route" });
+      }
+
+      const settings = await getAppSettingsMap();
+      res.json(settings);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.patch(
+  "/settings",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const currentAdmin = await User.findByPk(req.user.id);
+      if (!currentAdmin || currentAdmin.admin_status !== "approved") {
+        return res.status(403).json({ message: "Only approved admins can access this route" });
+      }
+
+      const updates = req.body || {};
+      const allowedKeys = Object.keys(DEFAULT_APP_SETTINGS);
+      const incomingEntries = Object.entries(updates).filter(([key]) => allowedKeys.includes(key));
+
+      if (incomingEntries.length === 0) {
+        return res.status(400).json({ message: "No valid settings were provided" });
+      }
+
+      for (const [key, value] of incomingEntries) {
+        if (!Number.isInteger(value) || value < 1) {
+          return res.status(400).json({ message: `${key} must be a positive whole number` });
+        }
+      }
+
+      const mergedSettings = { ...(await getAppSettingsMap()), ...Object.fromEntries(incomingEntries) };
+      if (mergedSettings.delivery_min_minutes > mergedSettings.delivery_max_minutes) {
+        return res.status(400).json({ message: "Minimum delivery time cannot exceed maximum delivery time" });
+      }
+
+      await Promise.all(
+        incomingEntries.map(([key, value]) =>
+          AppSetting.upsert({ key, value: String(value) })
+        )
+      );
+
+      const settings = await getAppSettingsMap();
+      res.json({ message: "Settings updated successfully", settings });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.patch(
+  "/users/:id/validity",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const currentAdmin = await User.findByPk(req.user.id);
+      if (!currentAdmin || currentAdmin.admin_status !== "approved") {
+        return res.status(403).json({ message: "Only approved admins can access this route" });
+      }
+
+      const targetUser = await User.findByPk(req.params.id);
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (targetUser.id === req.user.id) {
+        return res.status(400).json({ message: "You cannot disable your own account" });
+      }
+
+      const { isValid } = req.body;
+      if (typeof isValid !== "boolean") {
+        return res.status(400).json({ message: "isValid must be a boolean value" });
+      }
+
+      await targetUser.update({ isValid });
+
+      res.json({
+        message: isValid ? "User account enabled successfully" : "User account disabled successfully"
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.delete(
+  "/users/:id",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const currentAdmin = await User.findByPk(req.user.id);
+      if (!currentAdmin || currentAdmin.admin_status !== "approved") {
+        return res.status(403).json({ message: "Only approved admins can access this route" });
+      }
+
+      const targetUser = await User.findByPk(req.params.id);
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (targetUser.id === req.user.id) {
+        return res.status(400).json({ message: "You cannot delete your own account" });
+      }
+
+      if (targetUser.role === "product_manager") {
+        return res.status(400).json({ message: "Admin accounts cannot be deleted" });
+      }
+
+      await Cart.destroy({ where: { user_id: targetUser.id } });
+      await User.destroy({ where: { id: targetUser.id } });
+
+      res.json({ message: "User account removed successfully" });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -522,6 +746,7 @@ app.get(
         where: { order_id: order.id },
         include: [{ model: Product, attributes: ["name", "price", "image"] }]
       });
+      const returnWindowDays = await getNumericSetting("return_window_days");
 
       const itemsWithBase64 = items.map(item => {
         const obj = item.toJSON();
@@ -532,7 +757,10 @@ app.get(
       });
 
       res.json({
-        ...serializeOrderWithReturnMeta(order),
+        ...serializeOrderWithReturnMeta({
+          ...order.toJSON(),
+          return_window_days: returnWindowDays
+        }),
         items: itemsWithBase64
       });
     } catch (err) {
@@ -560,10 +788,15 @@ app.patch(
         return res.status(400).json({ message: "Only delivered orders can be returned" });
       }
 
-      const deadline = getReturnDeadline(order);
+      const returnWindowDays = await getNumericSetting("return_window_days");
+      const deadline = getReturnDeadline({
+        ...order.toJSON(),
+        return_window_days: returnWindowDays
+      });
+
       if (!deadline || Date.now() > deadline.getTime()) {
         return res.status(400).json({
-          message: `Return window closed. Returns are allowed for ${RETURN_WINDOW_DAYS} days after delivery.`
+          message: `Return window closed. Returns are allowed for ${returnWindowDays} days after delivery.`
         });
       }
 

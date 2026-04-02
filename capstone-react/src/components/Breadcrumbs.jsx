@@ -13,13 +13,27 @@ const breadcrumbMap = {
     { label: "Products", to: "/mainPage" },
     { label: "Dashboard" },
   ],
+  "/adminSettings": [
+    { label: "Products", to: "/mainPage" },
+    { label: "Settings" },
+  ],
   "/adminOrders": [
     { label: "Products", to: "/mainPage" },
     { label: "Manage Orders" },
   ],
+  "/adminUsers": [
+    { label: "Products", to: "/mainPage" },
+    { label: "Users" },
+  ],
+  "/adminUsers/approvals": [
+    { label: "Products", to: "/mainPage" },
+    { label: "Users", to: "/adminUsers" },
+    { label: "Approvals" },
+  ],
   "/adminApprovals": [
     { label: "Products", to: "/mainPage" },
-    { label: "Admin Requests" },
+    { label: "Users", to: "/adminUsers" },
+    { label: "Approvals" },
   ],
   "/customerProducts": [{ label: "Shop" }],
   "/cart": [

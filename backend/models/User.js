@@ -30,6 +30,12 @@ const User = sequelize.define("User", {
     defaultValue: "approved"
   },
 
+  isValid: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true
+  },
+
   reset_password_token: {
     type: DataTypes.STRING,
     allowNull: true

@@ -1,7 +1,7 @@
 import "./MainPage.css";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
-import { deleteProduct, getProducts, updateProduct } from "../api.js";
+import { deleteProduct, getAppSettings, getProducts, updateProduct } from "../api.js";
 import loadingGif from "../assets/loading.gif";
 
 function MainPage({ setProductId, categories, products, setProducts }) {
@@ -14,6 +14,10 @@ function MainPage({ setProductId, categories, products, setProducts }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
+  const [settings, setSettings] = useState({
+    low_stock_threshold: 10,
+    default_restock_increment: 100
+  });
 
   useEffect(() => {
     async function loadProducts() {
@@ -24,6 +28,23 @@ function MainPage({ setProductId, categories, products, setProducts }) {
     }
     loadProducts();
   }, [setProducts]);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const data = await getAppSettings();
+        setSettings((prev) => ({
+          ...prev,
+          low_stock_threshold: data.low_stock_threshold ?? prev.low_stock_threshold,
+          default_restock_increment: data.default_restock_increment ?? prev.default_restock_increment
+        }));
+      } catch {
+        // Keep existing defaults when settings are unavailable.
+      }
+    }
+
+    loadSettings();
+  }, []);
 
   const processedProducts = useMemo(() => {
     return products.map((p) => ({
@@ -153,7 +174,7 @@ function MainPage({ setProductId, categories, products, setProducts }) {
 
           {!loading &&
             filteredProducts.map((product) => {
-              const lowStock = product.quantity < 10;
+              const lowStock = product.quantity < settings.low_stock_threshold;
 
               return (
                 <div
@@ -187,8 +208,11 @@ function MainPage({ setProductId, categories, products, setProducts }) {
                   <button onClick={() => deleteItem(product.id)} disabled={actionLoadingId === product.id}>
                     {actionLoadingId === product.id ? "Deleting..." : "Delete"}
                   </button>
-                  <button onClick={() => restock(product.id, 100)} disabled={actionLoadingId === product.id}>
-                    {actionLoadingId === product.id ? "Updating..." : "+100"}
+                  <button
+                    onClick={() => restock(product.id, settings.default_restock_increment)}
+                    disabled={actionLoadingId === product.id}
+                  >
+                    {actionLoadingId === product.id ? "Updating..." : `+${settings.default_restock_increment}`}
                   </button>
                 </div>
               );

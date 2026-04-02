@@ -134,6 +134,46 @@ export async function getProfile() {
   return await handleResponse(res);
 }
 
+export async function getUsers() {
+  const res = await fetch(`${BASE_URL}/users`, {
+    headers: { ...getAuthHeader() }
+  });
+  return await handleResponse(res);
+}
+
+export async function deleteUser(userId) {
+  const res = await fetch(`${BASE_URL}/users/${userId}`, {
+    method: "DELETE",
+    headers: { ...getAuthHeader() }
+  });
+  return await handleResponse(res);
+}
+
+export async function updateUserValidity(userId, isValid) {
+  const res = await fetch(`${BASE_URL}/users/${userId}/validity`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    body: JSON.stringify({ isValid })
+  });
+  return await handleResponse(res);
+}
+
+export async function getAppSettings() {
+  const res = await fetch(`${BASE_URL}/settings`, {
+    headers: { ...getAuthHeader() }
+  });
+  return await handleResponse(res);
+}
+
+export async function updateAppSettings(payload) {
+  const res = await fetch(`${BASE_URL}/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    body: JSON.stringify(payload)
+  });
+  return await handleResponse(res);
+}
+
 // orders
 export async function getOrderDetails(orderId) {
   const res = await fetch(`${BASE_URL}/orders/${orderId}`, {

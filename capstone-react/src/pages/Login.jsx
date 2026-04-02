@@ -35,10 +35,13 @@ function Login() {
         }
       } else {
         const message = data?.message || "Login failed";
-        const isMissingAccount = message.toLowerCase().includes("user not found");
-        const isRejectedAdmin = message.toLowerCase().includes("rejected");
+        const normalizedMessage = message.toLowerCase();
+        const isMissingAccount = normalizedMessage.includes("user not found");
+        const isRejectedAdmin = normalizedMessage.includes("rejected");
+        const isPendingApproval = normalizedMessage.includes("pending approval");
+        const isDisabledUser = normalizedMessage.includes("temporarily disabled");
 
-        if (isMissingAccount || isRejectedAdmin) {
+        if (isMissingAccount || isRejectedAdmin || isPendingApproval || isDisabledUser) {
           alert(message);
         } else {
           alert("Login failed. Please check your credentials and try again.");

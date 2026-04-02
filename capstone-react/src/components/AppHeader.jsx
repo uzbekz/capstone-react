@@ -8,7 +8,10 @@ const productManagerPaths = new Set([
   "/mainPage",
   "/addProduct",
   "/dashboard",
+  "/adminSettings",
   "/adminOrders",
+  "/adminUsers",
+  "/adminUsers/approvals",
   "/adminApprovals",
 ]);
 
@@ -53,15 +56,15 @@ function AppHeader() {
 
   const isProductManager =
     profile?.role === "product_manager" || productManagerPaths.has(location.pathname);
-  const isPrimaryAdmin = isProductManager && profile?.id === 1;
 
   const navItems = isProductManager
     ? [
         { to: "/mainPage", label: "Products" },
         { to: "/adminOrders", label: "Orders" },
+        { to: "/adminUsers", label: "Users" },
+        { to: "/adminSettings", label: "Settings" },
         { to: "/addProduct", label: "Add Product" },
         { to: "/dashboard", label: "Dashboard" },
-        ...(isPrimaryAdmin ? [{ to: "/adminApprovals", label: "Admin Requests" }] : []),
       ]
     : [
         { to: "/customerProducts", label: "Shop" },
@@ -95,7 +98,8 @@ function AppHeader() {
           {navItems.map((item) => {
             const isActive =
               location.pathname === item.to ||
-              (item.to === "/customerOrders" && location.pathname.startsWith("/order/"));
+              (item.to === "/customerOrders" && location.pathname.startsWith("/order/")) ||
+              (item.to === "/adminUsers" && location.pathname.startsWith("/adminUsers"));
 
             return (
               <Link

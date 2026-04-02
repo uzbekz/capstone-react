@@ -1,18 +1,19 @@
 import Login from "./pages/Login"
 import Register from "./pages/Register"
-import {Routes, Route} from 'react-router-dom'
+import {Routes, Route, Navigate} from 'react-router-dom'
 import { useEffect, useState } from "react"
 import MainPage from "./pages/MainPage"
 import AddProduct from "./pages/AddProduct"
 import { getProducts } from "./api"
 import Dashboard from './pages/DashBoard.jsx'
 import AdminOrders from './pages/AdminOrders.jsx'
+import AdminSettings from './pages/AdminSettings.jsx'
 import CustomerProducts from './pages/CustomerProducts.jsx'
 import Cart from './pages/Cart.jsx'
 import CustomerOrders from './pages/CustomerOrders.jsx'
 import CustomerProfile from './pages/CustomerProfile.jsx'
 import OrderDetails from './pages/OrderDetails.jsx'
-import AdminApprovals from './pages/AdminApprovals.jsx'
+import AdminUsers from './pages/AdminUsers.jsx'
 import ForgotPassword from "./pages/ForgotPassword.jsx"
 import Breadcrumbs from "./components/Breadcrumbs.jsx"
 import AppHeader from "./components/AppHeader.jsx"
@@ -42,13 +43,16 @@ function App() {
         <Route path="/mainPage" element={<MainPage setProductId={setProductId} categories={categories} products={products} setProducts={setProducts}/>}/>
         <Route path ="/addProduct" element={<AddProduct productId={productId} setProductId={setProductId} categories={categories} setCategories={setCategories}/>} />
         <Route path='/dashboard' element={<Dashboard products={products} setProducts={setProducts}/>}/>
+        <Route path='/adminSettings' element={<AdminSettings />}/>
         <Route path='/adminOrders' element={<AdminOrders />}/>
         <Route path='/customerProducts' element={<CustomerProducts products={products} setProducts={setProducts} categories={categories}/>}/>
         <Route path="/cart" element={<Cart />}/>
         <Route path="/customerOrders" element={<CustomerOrders />}/>
         <Route path="/order/:id" element={<OrderDetails />}/>
         <Route path="/profile" element={<CustomerProfile />}/>
-        <Route path="/adminApprovals" element={<AdminApprovals />}/>
+        <Route path="/adminUsers" element={<AdminUsers />}/>
+        <Route path="/adminUsers/approvals" element={<AdminUsers />}/>
+        <Route path="/adminApprovals" element={<Navigate to="/adminUsers/approvals" replace />}/>
       </Routes>
     </>
   )

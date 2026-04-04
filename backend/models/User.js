@@ -46,6 +46,22 @@ const User = sequelize.define("User", {
     allowNull: true
   },
 
+  email_verified: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  },
+
+  email_verification_token: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  email_verification_expires: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+
   failed_login_attempts: {
     type: DataTypes.INTEGER,
     allowNull: false,

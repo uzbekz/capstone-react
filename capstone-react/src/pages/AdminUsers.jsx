@@ -21,7 +21,11 @@ function formatStatus(status) {
 }
 
 function formatValidity(isValid) {
-  return isValid ? "Enabled" : "Disabled";
+  return isValid ? "Active" : "Disabled";
+}
+
+function formatEmailVerification(emailVerified) {
+  return emailVerified ? "Verified" : "Pending";
 }
 
 function formatDate(value) {
@@ -77,12 +81,13 @@ function AdminUsers() {
 
     return users.filter((user) => {
       const matchesRole = roleFilter === "all" || user.role === roleFilter;
-      const matchesSearch =
-        !normalizedSearch ||
-        user.email.toLowerCase().includes(normalizedSearch) ||
-        formatRole(user.role).toLowerCase().includes(normalizedSearch) ||
-        formatStatus(user.admin_status).toLowerCase().includes(normalizedSearch) ||
-        formatValidity(user.isValid).toLowerCase().includes(normalizedSearch);
+        const matchesSearch =
+          !normalizedSearch ||
+          user.email.toLowerCase().includes(normalizedSearch) ||
+          formatRole(user.role).toLowerCase().includes(normalizedSearch) ||
+          formatStatus(user.admin_status).toLowerCase().includes(normalizedSearch) ||
+          formatEmailVerification(user.email_verified).toLowerCase().includes(normalizedSearch) ||
+          formatValidity(user.isValid).toLowerCase().includes(normalizedSearch);
 
       return matchesRole && matchesSearch;
     });
@@ -150,7 +155,7 @@ function AdminUsers() {
 
   async function handleValidityToggle(user) {
     const nextIsValid = !user.isValid;
-    const verb = nextIsValid ? "enable" : "disable";
+    const verb = nextIsValid ? "activate" : "disable";
     const shouldContinue = window.confirm(
       `Do you want to ${verb} the account for ${user.email}?`
     );
@@ -183,7 +188,7 @@ function AdminUsers() {
         )
       );
       showSnackbar(
-        nextIsValid ? "User account enabled successfully." : "User account disabled successfully.",
+        nextIsValid ? "User account activated successfully." : "User account disabled successfully.",
         "success"
       );
     } catch (err) {
@@ -288,6 +293,7 @@ function AdminUsers() {
                       <th>ID</th>
                       <th>Email</th>
                       <th>Role</th>
+                      <th>Email</th>
                       <th>Approval</th>
                       <th>Validity</th>
                       <th>Created On</th>
@@ -301,6 +307,11 @@ function AdminUsers() {
                         <td>{user.email}</td>
                         <td>{formatRole(user.role)}</td>
                         <td>
+                          <span className={`user-validity-badge ${user.email_verified ? "enabled" : "disabled"}`}>
+                            {formatEmailVerification(user.email_verified)}
+                          </span>
+                        </td>
+                        <td>
                           <span className={`user-status-badge ${user.admin_status}`}>
                             {formatStatus(user.admin_status)}
                           </span>
@@ -312,7 +323,7 @@ function AdminUsers() {
                         </td>
                         <td>{formatDate(user.created_at)}</td>
                         <td>
-                          <div className="table-action-group">
+                          <div className="table-action-group compact">
                             {user.admin_status === "pending" ? (
                               <Link to="/adminUsers/approvals" className="table-action-link">
                                 Review request
@@ -321,18 +332,22 @@ function AdminUsers() {
                               <span className="table-action-muted">No action needed</span>
                             )}
                             {user.id !== profile?.id ? (
-                              <button
-                                type="button"
-                                className={`validity-toggle-button ${user.isValid ? "disable" : "enable"}`}
-                                onClick={() => handleValidityToggle(user)}
-                                disabled={busyId === user.id}
-                              >
-                                {user.isValid ? "Disable" : "Enable"}
-                              </button>
+                              <label className={`status-toggle ${busyId === user.id ? "busy" : ""}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={user.isValid}
+                                  onChange={() => handleValidityToggle(user)}
+                                  disabled={busyId === user.id}
+                                />
+                                <span className="status-toggle-slider"></span>
+                                <span className="status-toggle-label">
+                                  {user.isValid ? "Active" : "Disabled"}
+                                </span>
+                              </label>
                             ) : (
                               <span className="table-action-muted">Protected</span>
                             )}
-                            {user.role !== "product_manager" && user.id !== profile?.id ? (
+                            {user.id !== profile?.id ? (
                               <button
                                 type="button"
                                 className="delete-user-button"
@@ -348,7 +363,7 @@ function AdminUsers() {
                     ))}
                     {filteredUsers.length === 0 && (
                       <tr>
-                        <td colSpan="7">
+                        <td colSpan="8">
                           <div className="user-admin-empty-row">
                             No users matched the current search and filters.
                           </div>
@@ -384,6 +399,7 @@ function AdminUsers() {
                       <th>ID</th>
                       <th>Email</th>
                       <th>Role</th>
+                      <th>Email</th>
                       <th>Requested On</th>
                       <th>Actions</th>
                     </tr>
@@ -394,6 +410,11 @@ function AdminUsers() {
                         <td>{request.id}</td>
                         <td>{request.email}</td>
                         <td>{formatRole(request.role)}</td>
+                        <td>
+                          <span className={`user-validity-badge ${request.email_verified ? "enabled" : "disabled"}`}>
+                            {formatEmailVerification(request.email_verified)}
+                          </span>
+                        </td>
                         <td>{formatDate(request.created_at)}</td>
                         <td>
                           <div className="approval-actions">
@@ -401,7 +422,8 @@ function AdminUsers() {
                               type="button"
                               className="approve-button"
                               onClick={() => handleDecision(request.id, "approve")}
-                              disabled={busyId === request.id}
+                              disabled={busyId === request.id || !request.email_verified}
+                              title={!request.email_verified ? "User must verify email before approval" : "Approve user"}
                             >
                               Approve
                             </button>
@@ -419,7 +441,7 @@ function AdminUsers() {
                     ))}
                     {requests.length === 0 && (
                       <tr>
-                        <td colSpan="5">
+                        <td colSpan="6">
                           <div className="user-admin-empty-state">
                             <div className="empty-state-icon">+</div>
                             <h3>No pending registrations</h3>

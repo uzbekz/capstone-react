@@ -23,6 +23,7 @@ const IS_PRODUCTION = NODE_ENV === "production";
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
 const CSRF_TOKEN_COOKIE = "csrf_token";
+const EMAIL_VERIFICATION_TTL_MINUTES = Number(process.env.EMAIL_VERIFICATION_TTL_MINUTES || 60);
 
 if (!ACCESS_TOKEN_SECRET) {
   throw new Error("JWT_SECRET must be set");
@@ -84,6 +85,51 @@ async function sendPasswordResetEmail(email, resetToken) {
     text: `Use this link to reset your password: ${resetUrl}\n\nThis link expires in 15 minutes.`,
     html: `<p>Use this link to reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link expires in 15 minutes.</p>`
   });
+}
+
+async function sendEmailVerificationEmail(email, verificationToken) {
+  const verifyUrl = `${FRONTEND_URL}/verify-email?token=${verificationToken}`;
+
+  if (!transporter) {
+    console.warn("[verify-email] SMTP is not configured. Token not sent via email.");
+    console.log(`[verify-email] verification token for ${email}: ${verificationToken}`);
+    return;
+  }
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: email,
+    subject: "Verify your email address",
+    text: `Use this link to verify your email: ${verifyUrl}\n\nThis link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.`,
+    html: `<p>Use this link to verify your email address:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>This link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.</p>`
+  });
+}
+
+async function sendAlreadyVerifiedEmail(email) {
+  if (!transporter) {
+    console.warn("[verify-email] SMTP is not configured. Already-verified notice not sent via email.");
+    return;
+  }
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: email,
+    subject: "Your email is already verified",
+    text: "This email address is already verified for the capstone application. No further verification action is required.",
+    html: "<p>This email address is already verified for the capstone application.</p><p>No further verification action is required.</p>"
+  });
+}
+
+function createVerificationTokenRecord() {
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+  const verificationTokenHash = crypto.createHash("sha256").update(verificationToken).digest("hex");
+  const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MINUTES * 60 * 1000);
+
+  return {
+    verificationToken,
+    verificationTokenHash,
+    expiresAt
+  };
 }
 
 function signAccessToken(user, sessionId) {
@@ -166,6 +212,17 @@ async function resetFailedLoginState(user) {
   }
 }
 
+async function refreshEmailVerificationToken(user) {
+  const { verificationToken, verificationTokenHash, expiresAt } = createVerificationTokenRecord();
+
+  await user.update({
+    email_verification_token: verificationTokenHash,
+    email_verification_expires: expiresAt
+  });
+
+  await sendEmailVerificationEmail(user.email, verificationToken);
+}
+
 router.post("/register", async (req, res) => {
   try {
     const { email, password, role } = req.body;
@@ -179,19 +236,92 @@ router.post("/register", async (req, res) => {
 
     const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const requestedRole = role === "product_manager" ? "product_manager" : "customer";
+    const { verificationToken, verificationTokenHash, expiresAt } = createVerificationTokenRecord();
 
     await User.create({
       email,
       password: hashed,
       role: requestedRole,
-      admin_status: "pending"
+      admin_status: "pending",
+      email_verified: false,
+      email_verification_token: verificationTokenHash,
+      email_verification_expires: expiresAt
     });
 
+    await sendEmailVerificationEmail(email, verificationToken);
+
     return res.json({
-      message: "Registration received. Your account is pending approval from an authorized admin."
+      message: "Registration received. Please verify your email before your account can be approved by an admin."
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/verify-email", async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: "Verification token is required" });
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    const user = await User.findOne({
+      where: {
+        email_verification_token: hashedToken,
+        email_verification_expires: { [Op.gt]: new Date() }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Verification token is invalid or expired" });
+    }
+
+    await user.update({
+      email_verified: true,
+      email_verification_token: null,
+      email_verification_expires: null
+    });
+
+    return res.json({
+      message: "Email verified successfully. Your account will be available after admin approval."
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/resend-verification", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.json({
+        message: "If an account exists for this email, a verification link has been sent."
+      });
+    }
+
+    if (user.email_verified) {
+      await sendAlreadyVerifiedEmail(email);
+      return res.json({ message: "This email address is already verified. A confirmation email has been sent." });
+    }
+
+    const { verificationToken, verificationTokenHash, expiresAt } = createVerificationTokenRecord();
+    await user.update({
+      email_verification_token: verificationTokenHash,
+      email_verification_expires: expiresAt
+    });
+
+    await sendEmailVerificationEmail(email, verificationToken);
+    return res.json({
+      message: "If an account exists for this email, a verification link has been sent."
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -217,6 +347,13 @@ router.post("/login", async (req, res) => {
     }
 
     await resetFailedLoginState(user);
+
+    if (!user.email_verified) {
+      await refreshEmailVerificationToken(user);
+      return res.status(403).json({
+        message: "Please verify your email address before logging in. A new verification email has been sent."
+      });
+    }
 
     if (user.admin_status === "pending") {
       return res.status(403).json({
@@ -396,7 +533,7 @@ router.get("/admin-requests", authenticate, authorize("product_manager"), async 
       where: {
         admin_status: "pending"
       },
-      attributes: ["id", "email", "role", "admin_status", "created_at"],
+      attributes: ["id", "email", "role", "admin_status", "email_verified", "created_at"],
       order: [["created_at", "ASC"]]
     });
 
@@ -427,6 +564,10 @@ router.patch("/admin-requests/:id", authenticate, authorize("product_manager"), 
     }
     if (targetUser.admin_status !== "pending") {
       return res.status(400).json({ message: "Only pending requests can be reviewed" });
+    }
+
+    if (decision === "approve" && !targetUser.email_verified) {
+      return res.status(400).json({ message: "User must verify their email before approval" });
     }
 
     const nextStatus = decision === "approve" ? "approved" : "rejected";

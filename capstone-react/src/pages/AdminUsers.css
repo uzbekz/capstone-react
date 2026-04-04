@@ -134,11 +134,11 @@
 }
 
 .user-admin-table-card {
-  padding: 18px 20px 22px;
+  padding: 14px 16px 18px;
 }
 
 .user-admin-card-header {
-  padding: 4px 2px 18px;
+  padding: 2px 2px 12px;
 }
 
 .user-admin-card-header h2 {
@@ -158,15 +158,18 @@
 
 .user-admin-table th,
 .user-admin-table td {
-  padding: 18px 16px;
+  padding: 11px 10px;
   border-top: 1px solid #e6ebf3;
   text-align: left;
-  font-size: 16px;
+  font-size: 14px;
+  vertical-align: middle;
 }
 
 .user-admin-table th {
   color: #17325f;
-  font-size: 17px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .user-admin-table td {
@@ -177,10 +180,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 108px;
-  padding: 10px 14px;
+  min-width: 92px;
+  padding: 7px 10px;
   border-radius: 999px;
   font-weight: 700;
+  font-size: 12px;
 }
 
 .user-status-badge.approved {
@@ -202,10 +206,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 108px;
-  padding: 10px 14px;
+  min-width: 92px;
+  padding: 7px 10px;
   border-radius: 999px;
   font-weight: 700;
+  font-size: 12px;
 }
 
 .user-validity-badge.enabled {
@@ -222,27 +227,34 @@
   color: #3461ff;
   font-weight: 600;
   text-decoration: none;
+  font-size: 13px;
 }
 
 .table-action-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+}
+
+.table-action-group.compact {
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .table-action-muted {
   color: #8b97aa;
+  font-size: 12px;
 }
 
 .delete-user-button {
   border: 1px solid #f2b9b9;
-  border-radius: 12px;
-  min-height: 40px;
-  padding: 0 14px;
+  border-radius: 10px;
+  min-height: 34px;
+  padding: 0 12px;
   background: #fff;
   color: #bf3030;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -252,29 +264,59 @@
   cursor: not-allowed;
 }
 
-.validity-toggle-button {
-  border: 1px solid transparent;
-  border-radius: 12px;
-  min-height: 40px;
-  padding: 0 14px;
-  font-size: 14px;
-  font-weight: 700;
+.status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
+  user-select: none;
 }
 
-.validity-toggle-button.enable {
-  background: #e7f7eb;
-  color: #2d7a47;
-}
-
-.validity-toggle-button.disable {
-  background: #fff4d8;
-  color: #9a6a00;
-}
-
-.validity-toggle-button:disabled {
+.status-toggle.busy {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.status-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.status-toggle-slider {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #c9d4e4;
+  transition: background 0.2s ease;
+}
+
+.status-toggle-slider::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.status-toggle input:checked + .status-toggle-slider {
+  background: #2d7a47;
+}
+
+.status-toggle input:checked + .status-toggle-slider::after {
+  transform: translateX(16px);
+}
+
+.status-toggle-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a5f7e;
 }
 
 .approval-actions {
@@ -284,10 +326,10 @@
 
 .approval-actions button {
   border: 1px solid transparent;
-  border-radius: 12px;
-  min-height: 44px;
-  padding: 0 16px;
-  font-size: 15px;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -402,8 +444,8 @@
 
   .user-admin-table th,
   .user-admin-table td {
-    padding: 16px 12px;
-    font-size: 14px;
+    padding: 10px 8px;
+    font-size: 13px;
   }
 
   .approval-actions {

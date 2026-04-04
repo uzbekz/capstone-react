@@ -1,6 +1,6 @@
 import Login from "./pages/Login"
 import Register from "./pages/Register"
-import {Routes, Route, Navigate} from 'react-router-dom'
+import {Routes, Route, Navigate, useLocation} from 'react-router-dom'
 import { useEffect, useState } from "react"
 import MainPage from "./pages/MainPage"
 import AddProduct from "./pages/AddProduct"
@@ -15,15 +15,18 @@ import CustomerProfile from './pages/CustomerProfile.jsx'
 import OrderDetails from './pages/OrderDetails.jsx'
 import AdminUsers from './pages/AdminUsers.jsx'
 import ForgotPassword from "./pages/ForgotPassword.jsx"
+import VerifyEmail from "./pages/VerifyEmail.jsx"
 import Breadcrumbs from "./components/Breadcrumbs.jsx"
 import AppHeader from "./components/AppHeader.jsx"
 import { SnackbarProvider } from "./components/SnackbarProvider.jsx"
 import "./App.css"
 
 function App() {
+  const location = useLocation();
   const [productId, setProductId] = useState(null)
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const hideGlobalChrome = location.pathname === "/verify-email";
   useEffect(() => {
     async function fetchCategories(){
       const products = await getProducts()
@@ -35,11 +38,12 @@ function App() {
   
   return (
     <SnackbarProvider>
-      <AppHeader />
-      <Breadcrumbs />
+      {!hideGlobalChrome && <AppHeader />}
+      {!hideGlobalChrome && <Breadcrumbs />}
       <Routes>
         <Route path="/" element={<Login/>}/>
         <Route path="/forgot-password" element={<ForgotPassword />}/>
+        <Route path="/verify-email" element={<VerifyEmail />}/>
         <Route path="/register" element={<Register />}/>
         <Route path="/mainPage" element={<MainPage setProductId={setProductId} categories={categories} products={products} setProducts={setProducts}/>}/>
         <Route path ="/addProduct" element={<AddProduct productId={productId} setProductId={setProductId} categories={categories} setCategories={setCategories}/>} />

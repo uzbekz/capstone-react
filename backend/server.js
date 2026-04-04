@@ -36,7 +36,9 @@ const CSRF_EXEMPT_PATHS = new Set([
   "/auth/register",
   "/auth/refresh",
   "/auth/forgot-password",
-  "/auth/reset-password"
+  "/auth/reset-password",
+  "/auth/verify-email",
+  "/auth/resend-verification"
 ]);
 
 function isStateChangingMethod(method) {
@@ -139,13 +141,13 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json());
 app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 60 * 1000,
   max: Number(process.env.PUBLIC_API_RATE_LIMIT || 200),
   standardHeaders: true,
   legacyHeaders: false
 }));
 app.use("/auth", rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 60 * 1000,
   max: Number(process.env.AUTH_RATE_LIMIT || 20),
   standardHeaders: true,
   legacyHeaders: false
@@ -634,7 +636,7 @@ app.get(
   async (req, res) => {
     try {
       const user = await User.findByPk(req.user.id, {
-        attributes: ["id", "email", "role", "admin_status", "isValid", "created_at"]
+        attributes: ["id", "email", "role", "admin_status", "isValid", "email_verified", "created_at"]
       });
       res.json(user);
     } catch (err) {
@@ -655,7 +657,7 @@ app.get(
       }
 
       const users = await User.findAll({
-        attributes: ["id", "email", "role", "admin_status", "isValid", "created_at"],
+        attributes: ["id", "email", "role", "admin_status", "isValid", "email_verified", "created_at"],
         order: [["created_at", "DESC"]]
       });
 
@@ -783,10 +785,6 @@ app.delete(
 
       if (targetUser.id === req.user.id) {
         return res.status(400).json({ message: "You cannot delete your own account" });
-      }
-
-      if (targetUser.role === "product_manager") {
-        return res.status(400).json({ message: "Admin accounts cannot be deleted" });
       }
 
       await Cart.destroy({ where: { user_id: targetUser.id } });

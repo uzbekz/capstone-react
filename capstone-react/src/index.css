@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap");
+
 html, body, #root {
   margin: 0;
   padding: 0;
@@ -5,6 +7,24 @@ html, body, #root {
   min-height: 100%;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   overflow-y: auto;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at top left, rgba(46, 125, 154, 0.08), transparent 30%),
+    linear-gradient(180deg, var(--color-bg), var(--color-bg-soft));
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }

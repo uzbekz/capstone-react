@@ -91,13 +91,20 @@ function AddProduct({ productId, setProductId, categories }) {
           </div>
         ) : (
           <>
+            <p className="add-product-kicker">Products &rsaquo; Catalog</p>
             <h2>{productId ? "Edit Product" : "Add New Product"}</h2>
+            <p className="add-product-copy">
+              {productId
+                ? "Update product details, stock information, and image from a single place."
+                : "Create a new catalog item with pricing, quantity, category, and product image."}
+            </p>
 
             <form
               className="add-product-form"
               onSubmit={handleSubmit}
               encType="multipart/form-data"
             >
+              <div className="form-grid">
               <div className="form-group">
                 <label>Product Name</label>
                 <input
@@ -185,6 +192,7 @@ function AddProduct({ productId, setProductId, categories }) {
                   accept="image/*"
                   onChange={e => setImage(e.target.files[0])}
                 />
+              </div>
               </div>
 
               <button type="submit">

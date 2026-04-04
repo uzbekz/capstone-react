@@ -20,7 +20,7 @@ function Register() {
 
     try {
       await register({ email, password, role });
-      showSnackbar("Registration submitted successfully.", "success");
+      showSnackbar("Registration created. Please verify your email before admin approval.", "success");
       navigate("/");
     } catch (err) {
       const message = err.message || "Registration failed";

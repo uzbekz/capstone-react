@@ -12,6 +12,7 @@ function ForgotPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [requestLoading, setRequestLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [redirectingToLogin, setRedirectingToLogin] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
   useEffect(() => {
@@ -42,7 +43,8 @@ function ForgotPassword() {
     try {
       const data = await resetPassword(token, newPassword);
       setStatusMessage(data.message || "Password reset successful.");
-      setTimeout(() => navigate("/"), 800);
+      setRedirectingToLogin(true);
+      setTimeout(() => navigate("/"), 1100);
     } catch (err) {
       setStatusMessage(err.message || "Network error while resetting password.");
     } finally {
@@ -50,7 +52,7 @@ function ForgotPassword() {
     }
   }
 
-  const isBusy = requestLoading || resetLoading;
+  const isBusy = requestLoading || resetLoading || redirectingToLogin;
 
   return (
     <div className="forgot-password-page">
@@ -58,45 +60,56 @@ function ForgotPassword() {
         {isBusy ? (
           <div className="auth-loading">
             <img src={loadingGif} alt="Processing request" className="auth-loading-gif" />
-            <p>Please wait...</p>
+            <p>{redirectingToLogin ? "Password updated. Redirecting to login..." : "Please wait..."}</p>
           </div>
         ) : (
           <>
             <h2>Forgot Password</h2>
+            <p className="forgot-password-copy">
+              Request a reset token for your account, then use that token below to choose a new password.
+            </p>
 
-            <form onSubmit={requestReset}>
-              <input
-                type="email"
-                placeholder="Enter your account email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-              />
-              <button type="submit">Send Reset Token</button>
-            </form>
+            <section className="forgot-password-section">
+              <h3>Request Reset Token</h3>
+              <p>Enter your account email and we will send a password reset link or token.</p>
+              <form onSubmit={requestReset}>
+                <input
+                  type="email"
+                  placeholder="Enter your account email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+                <button type="submit">Send Reset Token</button>
+              </form>
+            </section>
 
-            <form onSubmit={submitReset}>
-              <input
-                type="text"
-                placeholder="Paste reset token"
-                value={token}
-                onChange={e => setToken(e.target.value)}
-                required
-              />
-              <input
-                type="password"
-                placeholder="New password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-              <button type="submit">Reset Password</button>
-            </form>
+            <section className="forgot-password-section">
+              <h3>Set New Password</h3>
+              <p>Paste the reset token from your email and choose a new password.</p>
+              <form onSubmit={submitReset}>
+                <input
+                  type="text"
+                  placeholder="Paste reset token"
+                  value={token}
+                  onChange={e => setToken(e.target.value)}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="New password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button type="submit">Reset Password</button>
+              </form>
+            </section>
 
             {statusMessage && <p className="status-text">{statusMessage}</p>}
 
-            <p>
+            <p className="forgot-password-footer">
               <Link to="/">Back to login</Link>
             </p>
           </>

@@ -31,10 +31,11 @@ function Login() {
       const normalizedMessage = message.toLowerCase();
       const isRejectedAdmin = normalizedMessage.includes("rejected");
       const isPendingApproval = normalizedMessage.includes("pending approval");
+      const isEmailVerificationPending = normalizedMessage.includes("verify your email");
       const isDisabledUser = normalizedMessage.includes("temporarily disabled");
       const isRateLimited = err.status === 423 || err.status === 429;
 
-      if (isRejectedAdmin || isPendingApproval || isDisabledUser || isRateLimited) {
+      if (isRejectedAdmin || isPendingApproval || isEmailVerificationPending || isDisabledUser || isRateLimited) {
         showSnackbar(message, "warning", 4200);
       } else {
         showSnackbar("Login failed. Please check your credentials and try again.", "error");

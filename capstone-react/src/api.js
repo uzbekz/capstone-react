@@ -75,6 +75,22 @@ export async function register(payload) {
   });
 }
 
+export async function verifyEmail(token) {
+  return request("/auth/verify-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token })
+  });
+}
+
+export async function resendVerification(email) {
+  return request("/auth/resend-verification", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
+}
+
 export async function requestPasswordReset(email) {
   return request("/auth/forgot-password", {
     method: "POST",

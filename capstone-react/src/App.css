@@ -1,3 +1,18 @@
 :root {
   --app-header-height: 74px;
+  --font-sans: "Sora", sans-serif;
+  --color-bg: #f2f7f8;
+  --color-bg-soft: #fbfcfd;
+  --color-panel: #ffffff;
+  --color-panel-soft: #f6fafb;
+  --color-text: #17324a;
+  --color-text-muted: #60738a;
+  --color-border: #d9e5ec;
+  --color-accent: #2e7d9a;
+  --color-accent-strong: #215e75;
+  --color-accent-soft: rgba(46, 125, 154, 0.12);
+  --color-success: #2d7a47;
+  --color-warning: #9a6a00;
+  --color-danger: #bf3030;
+  --shadow-soft: 0 12px 28px rgba(23, 50, 74, 0.08);
 }

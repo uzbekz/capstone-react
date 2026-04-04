@@ -44,6 +44,17 @@ const User = sequelize.define("User", {
   reset_password_expires: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+
+  failed_login_attempts: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0
+  },
+
+  lock_until: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 
 }, {

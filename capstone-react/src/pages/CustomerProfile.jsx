@@ -1,20 +1,27 @@
 import "./CustomerProfile.css";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getProfile } from "../api";
 import loadingGif from "../assets/loading.gif";
 
 function CustomerProfile() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const data = await getProfile();
-      setProfile(data);
-      setLoading(false);
+      try {
+        const data = await getProfile();
+        setProfile(data);
+      } catch {
+        navigate("/");
+      } finally {
+        setLoading(false);
+      }
     }
     load();
-  }, []);
+  }, [navigate]);
 
   if (loading) {
     return (

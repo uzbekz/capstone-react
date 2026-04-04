@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import loadingGif from "../assets/loading.gif";
 import "./Register.css";
+import { register } from "../api";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 function Register() {
   const navigate = useNavigate();
@@ -10,38 +12,28 @@ function Register() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("customer");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showSnackbar } = useSnackbar();
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const res = await fetch("http://localhost:5000/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role })
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        console.info("Registered successfully");
-        navigate("/");
-      } else {
-        const message = data?.error || data?.message || "Registration failed";
-        const isDuplicateAccount =
-          message.toLowerCase().includes("already registered") ||
-          message.toLowerCase().includes("duplicate");
-
-        if (isDuplicateAccount) {
-          alert(message);
-        } else {
-          console.error(message);
-        }
-        setIsSubmitting(false);
-      }
+      await register({ email, password, role });
+      showSnackbar("Registration submitted successfully.", "success");
+      navigate("/");
     } catch (err) {
-      console.error("Network error :" + err.message);
+      const message = err.message || "Registration failed";
+      const isDuplicateAccount =
+        message.toLowerCase().includes("already registered") ||
+        message.toLowerCase().includes("duplicate");
+
+      if (isDuplicateAccount) {
+        showSnackbar(message, "warning");
+      } else {
+        showSnackbar(message, "error");
+        console.error(message);
+      }
       setIsSubmitting(false);
     }
   }

@@ -3,54 +3,43 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
+import { login } from "../api";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { showSnackbar } = useSnackbar();
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const res = await fetch("http://localhost:5000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await login(email, password);
+      showSnackbar("Login successful.", "success");
 
-      const data = await res.json();
-
-      if (res.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("role", data.role);
-        console.info("Login successful");
-
-        if (data.role === "customer") {
-          navigate("/customerProducts");
-        } else {
-          navigate("/mainPage");
-        }
+      if (data.role === "customer") {
+        navigate("/customerProducts");
       } else {
-        const message = data?.message || "Login failed";
-        const normalizedMessage = message.toLowerCase();
-        const isMissingAccount = normalizedMessage.includes("user not found");
-        const isRejectedAdmin = normalizedMessage.includes("rejected");
-        const isPendingApproval = normalizedMessage.includes("pending approval");
-        const isDisabledUser = normalizedMessage.includes("temporarily disabled");
-
-        if (isMissingAccount || isRejectedAdmin || isPendingApproval || isDisabledUser) {
-          alert(message);
-        } else {
-          alert("Login failed. Please check your credentials and try again.");
-          console.error(message);
-        }
-        setIsSubmitting(false);
+        navigate("/mainPage");
       }
     } catch (err) {
-      console.error("Network error :" + err.message);
+      const message = err.message || "Login failed";
+      const normalizedMessage = message.toLowerCase();
+      const isRejectedAdmin = normalizedMessage.includes("rejected");
+      const isPendingApproval = normalizedMessage.includes("pending approval");
+      const isDisabledUser = normalizedMessage.includes("temporarily disabled");
+      const isRateLimited = err.status === 423 || err.status === 429;
+
+      if (isRejectedAdmin || isPendingApproval || isDisabledUser || isRateLimited) {
+        showSnackbar(message, "warning", 4200);
+      } else {
+        showSnackbar("Login failed. Please check your credentials and try again.", "error");
+        console.error(message);
+      }
       setIsSubmitting(false);
     }
   }

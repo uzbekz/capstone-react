@@ -2,6 +2,8 @@ import "./AdminOrders.css";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
+import { dispatchOrderRequest, getAllOrders, cancelOrderRequest } from "../api";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 function getLocalDateString(date = new Date()) {
   const year = date.getFullYear();
@@ -24,31 +26,21 @@ function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [filterMode, setFilterMode] = useState("today");
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
-
-  const token = localStorage.getItem("token");
-
-  useEffect(() => {
-    if (!token) navigate("/");
-  }, [token, navigate]);
+  const { showSnackbar } = useSnackbar();
 
   const loadOrders = useCallback(async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
-
-    const res = await fetch("http://localhost:5000/orders/all", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const data = await res.json();
-    setOrders(data);
-    setLoading(false);
-  }, [token]);
+    try {
+      const data = await getAllOrders();
+      setOrders(data);
+    } catch (err) {
+      console.error(err);
+      showSnackbar("Unable to load orders.", "error");
+      navigate("/");
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate]);
 
   useEffect(() => {
     loadOrders();
@@ -87,22 +79,11 @@ function AdminOrders() {
   async function dispatchOrder(id) {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5000/orders/${id}/dispatch`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to dispatch order");
-      }
-
-      console.info(data.message);
+      const data = await dispatchOrderRequest(id);
+      showSnackbar(data.message || "Order dispatched successfully.", "success");
       await loadOrders();
     } catch (err) {
-      alert(err.message || "Failed to dispatch order");
+      showSnackbar(err.message || "Failed to dispatch order", "error");
       setLoading(false);
     }
   }
@@ -110,17 +91,11 @@ function AdminOrders() {
   async function cancelOrder(id) {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5000/orders/${id}/cancel`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-      console.info(data.message);
+      const data = await cancelOrderRequest(id);
+      showSnackbar(data.message || "Order cancelled successfully.", "success");
       await loadOrders();
     } catch (err) {
+      showSnackbar(err.message || "Failed to cancel order", "error");
       console.error(err.message || "Failed to cancel order");
       setLoading(false);
     }

@@ -12,7 +12,6 @@ import loadingGif from "../assets/loading.gif";
 
 function CustomerProducts({ products, setProducts, categories }) {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
 
   const [loading, setLoading] = useState(true);
   const [cartByProduct, setCartByProduct] = useState({});
@@ -21,10 +20,6 @@ function CustomerProducts({ products, setProducts, categories }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
-
-  useEffect(() => {
-    if (!token) navigate("/");
-  }, [token, navigate]);
 
   useEffect(() => {
     async function loadProducts() {
@@ -37,31 +32,30 @@ function CustomerProducts({ products, setProducts, categories }) {
   }, [setProducts]);
 
   async function loadCart() {
-    if (!token) {
+    try {
+      const data = await getCart();
+      if (!Array.isArray(data)) {
+        setCartByProduct({});
+        return;
+      }
+
+      const mapped = data.reduce((acc, item) => {
+        acc[item.product_id] = {
+          cartItemId: item.id,
+          quantity: item.quantity,
+        };
+        return acc;
+      }, {});
+
+      setCartByProduct(mapped);
+    } catch {
       setCartByProduct({});
-      return;
     }
-
-    const data = await getCart();
-    if (data.message && !Array.isArray(data)) {
-      setCartByProduct({});
-      return;
-    }
-
-    const mapped = data.reduce((acc, item) => {
-      acc[item.product_id] = {
-        cartItemId: item.id,
-        quantity: item.quantity,
-      };
-      return acc;
-    }, {});
-
-    setCartByProduct(mapped);
   }
 
   useEffect(() => {
     loadCart();
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     cartByProductRef.current = cartByProduct;
@@ -105,11 +99,6 @@ function CustomerProducts({ products, setProducts, categories }) {
   }, [processedProducts, search, category, sort]);
 
   async function addToCart(product, qty) {
-    if (!token) {
-      console.warn("Please login to add items to your cart");
-      return;
-    }
-
     const currentEntry = cartByProductRef.current[product.id];
     const currentQty = currentEntry?.quantity || 0;
     const increment = Math.min(qty, Math.max(0, product.quantity - currentQty));
@@ -194,11 +183,6 @@ function CustomerProducts({ products, setProducts, categories }) {
   }
 
   async function decrementCartItem(product) {
-    if (!token) {
-      console.warn("Please login to edit your cart");
-      return;
-    }
-
     const existing = cartByProductRef.current[product.id];
     if (!existing || existing.quantity <= 0) return;
 

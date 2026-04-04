@@ -9,6 +9,7 @@ import {
   updateUserValidity
 } from "../api";
 import loadingGif from "../assets/loading.gif";
+import { useSnackbar } from "../components/SnackbarProvider";
 import "./AdminUsers.css";
 
 function formatRole(role) {
@@ -38,6 +39,7 @@ function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [busyId, setBusyId] = useState(null);
   const activeTab = location.pathname.endsWith("/approvals") ? "approvals" : "users";
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     async function bootstrap() {
@@ -59,6 +61,7 @@ function AdminUsers() {
         setUsers(allUsers);
         setRequests(pendingUsers);
       } catch (err) {
+        showSnackbar(err.message || "Failed to load user management", "error");
         console.error(err.message || "Failed to load user management");
         navigate("/mainPage");
       } finally {
@@ -114,7 +117,12 @@ function AdminUsers() {
             : user
         )
       );
+      showSnackbar(
+        decision === "approve" ? "User request approved." : "User request rejected.",
+        "success"
+      );
     } catch (err) {
+      showSnackbar(err.message || "Failed to review request", "error");
       console.error(err.message || "Failed to review request");
     } finally {
       setBusyId(null);
@@ -132,8 +140,9 @@ function AdminUsers() {
       await deleteUser(user.id);
       setUsers((prev) => prev.filter((item) => item.id !== user.id));
       setRequests((prev) => prev.filter((item) => item.id !== user.id));
+      showSnackbar("User account removed successfully.", "success");
     } catch (err) {
-      alert(err.message || "Failed to remove user account");
+      showSnackbar(err.message || "Failed to remove user account", "error");
     } finally {
       setBusyId(null);
     }
@@ -173,8 +182,12 @@ function AdminUsers() {
             : item
         )
       );
+      showSnackbar(
+        nextIsValid ? "User account enabled successfully." : "User account disabled successfully.",
+        "success"
+      );
     } catch (err) {
-      alert(err.message || "Failed to update account status");
+      showSnackbar(err.message || "Failed to update account status", "error");
     } finally {
       setBusyId(null);
     }

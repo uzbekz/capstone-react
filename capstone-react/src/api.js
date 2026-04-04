@@ -1,8 +1,11 @@
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
-function getAuthHeader() {
-  const token = localStorage.getItem("token");
-  return token ? { "Authorization": `Bearer ${token}` } : {};
+function getCookie(name) {
+  const cookie = document.cookie
+    .split("; ")
+    .find((value) => value.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.split("=").slice(1).join("=")) : "";
 }
 
 async function handleResponse(res) {
@@ -13,56 +16,115 @@ async function handleResponse(res) {
 
   if (!res.ok) {
     const message = data?.error || data?.message || `Request failed (${res.status})`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
 
   return data;
 }
 
+async function refreshSession() {
+  const res = await fetch(`${BASE_URL}/auth/refresh`, {
+    method: "POST",
+    credentials: "include"
+  });
+
+  return handleResponse(res);
+}
+
+async function request(path, options = {}, retry = true) {
+  const method = options.method || "GET";
+  const headers = new Headers(options.headers || {});
+
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase())) {
+    const csrfToken = getCookie("csrf_token");
+    if (csrfToken) {
+      headers.set("X-CSRF-Token", csrfToken);
+    }
+  }
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers,
+    credentials: "include"
+  });
+
+  if (res.status === 401 && retry && !path.startsWith("/auth/")) {
+    await refreshSession();
+    return request(path, options, false);
+  }
+
+  return handleResponse(res);
+}
+
+export async function login(email, password) {
+  return request("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+}
+
+export async function register(payload) {
+  return request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function requestPasswordReset(email) {
+  return request("/auth/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
+}
+
+export async function resetPassword(token, newPassword) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, newPassword })
+  });
+}
+
+export async function logout() {
+  return request("/auth/logout", {
+    method: "POST"
+  });
+}
+
 export async function getProducts() {
-  const res = await fetch(`${BASE_URL}/products`);
-  return await handleResponse(res);
+  return request("/products");
 }
 
 export async function getProductById(id) {
-  const res = await fetch(`${BASE_URL}/products/${id}`);
-  return await handleResponse(res);
+  return request(`/products/${id}`);
 }
 
-
 export async function addProduct(formData) {
-  const res = await fetch(`${BASE_URL}/products/add`, {
+  return request("/products/add", {
     method: "POST",
-    headers: {
-      ...getAuthHeader()
-    },
     body: formData
   });
-
-  return await handleResponse(res);
 }
 
 export async function deleteProduct(id) {
-  const res = await fetch(`${BASE_URL}/products/${id}`, {
-    method: "DELETE",
-    headers: {
-      ...getAuthHeader()
-    }
+  return request(`/products/${id}`, {
+    method: "DELETE"
   });
-  return await handleResponse(res);
 }
 
 export async function updateProduct(id, payload) {
   const isFormData = payload instanceof FormData;
-  const res = await fetch(`${BASE_URL}/products/${id}`, {
+  return request(`/products/${id}`, {
     method: "PUT",
-    headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...getAuthHeader()
-    },
+    headers: isFormData ? undefined : { "Content-Type": "application/json" },
     body: isFormData ? payload : JSON.stringify(payload)
   });
-  return await handleResponse(res);
 }
 
 export async function getFilteredProducts({ search, category, sort }) {
@@ -72,145 +134,125 @@ export async function getFilteredProducts({ search, category, sort }) {
   if (category) params.append("category", category);
   if (sort) params.append("sort", sort);
 
-  const res = await fetch(`http://localhost:5000/products?${params}`);
-  return await res.json();
+  return request(`/products?${params.toString()}`);
 }
 
-// ---------------- cart helpers ----------------
 export async function getCart() {
-  const res = await fetch(`${BASE_URL}/cart`, {
-    headers: { ...getAuthHeader() }
-  });
-  return await res.json();
+  return request("/cart");
 }
 
 export async function addToCartRequest(product_id, quantity) {
-  const res = await fetch(`${BASE_URL}/cart`, {
+  return request("/cart", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ product_id, quantity })
   });
-  return await res.json();
 }
 
 export async function updateCartItem(id, quantity) {
-  const res = await fetch(`${BASE_URL}/cart/${id}`, {
+  return request(`/cart/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ quantity })
   });
-  return await res.json();
 }
 
 export async function removeCartItem(id) {
-  const res = await fetch(`${BASE_URL}/cart/${id}`, {
-    method: "DELETE",
-    headers: { ...getAuthHeader() }
+  return request(`/cart/${id}`, {
+    method: "DELETE"
   });
-  return await res.json();
 }
 
 export async function clearCartRequest() {
-  const res = await fetch(`${BASE_URL}/cart`, {
-    method: "DELETE",
-    headers: { ...getAuthHeader() }
+  return request("/cart", {
+    method: "DELETE"
   });
-  return await res.json();
 }
 
-// ----- dashboard/report endpoints for product managers -----
+export async function createOrder(items) {
+  return request("/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items })
+  });
+}
+
+export async function getCustomerOrders() {
+  return request("/orders");
+}
+
+export async function getAllOrders() {
+  return request("/orders/all");
+}
+
+export async function dispatchOrderRequest(orderId) {
+  return request(`/orders/${orderId}/dispatch`, {
+    method: "PATCH"
+  });
+}
+
 export async function getDashboardReports() {
-  const res = await fetch(`${BASE_URL}/reports/overview`, {
-    headers: { ...getAuthHeader() }
-  });
-  return await res.json();
+  return request("/reports/overview");
 }
 
-// profile
 export async function getProfile() {
-  const res = await fetch(`${BASE_URL}/users/me`, {
-    headers: { ...getAuthHeader() }
-  });
-  return await handleResponse(res);
+  return request("/users/me");
 }
 
 export async function getUsers() {
-  const res = await fetch(`${BASE_URL}/users`, {
-    headers: { ...getAuthHeader() }
-  });
-  return await handleResponse(res);
+  return request("/users");
 }
 
 export async function deleteUser(userId) {
-  const res = await fetch(`${BASE_URL}/users/${userId}`, {
-    method: "DELETE",
-    headers: { ...getAuthHeader() }
+  return request(`/users/${userId}`, {
+    method: "DELETE"
   });
-  return await handleResponse(res);
 }
 
 export async function updateUserValidity(userId, isValid) {
-  const res = await fetch(`${BASE_URL}/users/${userId}/validity`, {
+  return request(`/users/${userId}/validity`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isValid })
   });
-  return await handleResponse(res);
 }
 
 export async function getAppSettings() {
-  const res = await fetch(`${BASE_URL}/settings`, {
-    headers: { ...getAuthHeader() }
-  });
-  return await handleResponse(res);
+  return request("/settings");
 }
 
 export async function updateAppSettings(payload) {
-  const res = await fetch(`${BASE_URL}/settings`, {
+  return request("/settings", {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  return await handleResponse(res);
 }
 
-// orders
 export async function getOrderDetails(orderId) {
-  const res = await fetch(`${BASE_URL}/orders/${orderId}`, {
-    headers: { ...getAuthHeader() }
-  });
-  return await res.json();
+  return request(`/orders/${orderId}`);
 }
 
 export async function cancelOrderRequest(orderId) {
-  const res = await fetch(`${BASE_URL}/orders/${orderId}/cancel`, {
-    method: "PATCH",
-    headers: { ...getAuthHeader() }
+  return request(`/orders/${orderId}/cancel`, {
+    method: "PATCH"
   });
-  return await handleResponse(res);
 }
 
 export async function returnOrderRequest(orderId) {
-  const res = await fetch(`${BASE_URL}/orders/${orderId}/return`, {
-    method: "PATCH",
-    headers: { ...getAuthHeader() }
+  return request(`/orders/${orderId}/return`, {
+    method: "PATCH"
   });
-  return await handleResponse(res);
 }
 
-// ----- primary admin approval helpers -----
 export async function getPendingAdminRequests() {
-  const res = await fetch(`${BASE_URL}/auth/admin-requests`, {
-    headers: { ...getAuthHeader() }
-  });
-  return await handleResponse(res);
+  return request("/auth/admin-requests");
 }
 
 export async function reviewAdminRequest(userId, decision) {
-  const res = await fetch(`${BASE_URL}/auth/admin-requests/${userId}`, {
+  return request(`/auth/admin-requests/${userId}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ decision })
   });
-  return await handleResponse(res);
 }

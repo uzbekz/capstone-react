@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
 import "./ForgotPassword.css";
+import { requestPasswordReset, resetPassword } from "../api";
 
 function ForgotPassword() {
   const navigate = useNavigate();
@@ -24,18 +25,8 @@ function ForgotPassword() {
     setStatusMessage("");
 
     try {
-      const res = await fetch("http://localhost:5000/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setStatusMessage(data.message || "Reset request submitted.");
-      } else {
-        setStatusMessage(data.message || data.error || "Failed to request reset.");
-      }
+      const data = await requestPasswordReset(email);
+      setStatusMessage(data.message || "Reset request submitted.");
     } catch (err) {
       setStatusMessage(err.message || "Network error while requesting reset.");
     } finally {
@@ -49,19 +40,9 @@ function ForgotPassword() {
     setStatusMessage("");
 
     try {
-      const res = await fetch("http://localhost:5000/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, newPassword })
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setStatusMessage(data.message || "Password reset successful.");
-        setTimeout(() => navigate("/"), 800);
-      } else {
-        setStatusMessage(data.message || data.error || "Failed to reset password.");
-      }
+      const data = await resetPassword(token, newPassword);
+      setStatusMessage(data.message || "Password reset successful.");
+      setTimeout(() => navigate("/"), 800);
     } catch (err) {
       setStatusMessage(err.message || "Network error while resetting password.");
     } finally {

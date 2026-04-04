@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { deleteProduct, getAppSettings, getProducts, updateProduct } from "../api.js";
 import loadingGif from "../assets/loading.gif";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 function MainPage({ setProductId, categories, products, setProducts }) {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ function MainPage({ setProductId, categories, products, setProducts }) {
     low_stock_threshold: 10,
     default_restock_increment: 100
   });
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     async function loadProducts() {
@@ -94,7 +96,9 @@ function MainPage({ setProductId, categories, products, setProducts }) {
       setActionLoadingId(id);
       await deleteProduct(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
+      showSnackbar("Product deleted successfully.", "success");
     } catch (err) {
+      showSnackbar(err.message || "Failed to delete product", "error");
       console.error("Failed to delete product: " + (err.message || "Unknown error"));
     } finally {
       setActionLoadingId(null);
@@ -116,6 +120,7 @@ function MainPage({ setProductId, categories, products, setProducts }) {
         prev.map((p) => (p.id === id ? { ...p, quantity: newQuantity } : p)),
       );
       setRestockedProducts((prev) => ({ ...prev, [id]: true }));
+      showSnackbar("Product restocked successfully.", "success");
       setTimeout(() => {
         setRestockedProducts((prev) => {
           const next = { ...prev };
@@ -124,6 +129,7 @@ function MainPage({ setProductId, categories, products, setProducts }) {
         });
       }, 2200);
     } catch (err) {
+      showSnackbar(err.message || "Failed to restock product", "error");
       console.error("Failed to restock product: " + (err.message || "Unknown error"));
     } finally {
       if (shouldUseGridLoader) setGridLoading(false);

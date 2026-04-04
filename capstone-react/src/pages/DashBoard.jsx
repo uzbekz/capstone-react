@@ -5,7 +5,6 @@ import Chart from "chart.js/auto";
 import loadingGif from "../assets/loading.gif";
 
 function Dashboard({ products }) {
-  const token = localStorage.getItem("token");
   const [localProducts, setLocalProducts] = useState([]);
   const [reports, setReports] = useState({});
   const [settings, setSettings] = useState({ low_stock_threshold: 10 });
@@ -34,8 +33,8 @@ function Dashboard({ products }) {
       try {
         const productsPromise =
           products && products.length ? Promise.resolve(products) : getProducts();
-        const reportsPromise = token ? getDashboardReports() : Promise.resolve({});
-        const settingsPromise = token ? getAppSettings() : Promise.resolve({ low_stock_threshold: 10 });
+        const reportsPromise = getDashboardReports();
+        const settingsPromise = getAppSettings();
 
         const [productData, reportData, settingsData] = await Promise.all([
           productsPromise,
@@ -58,7 +57,7 @@ function Dashboard({ products }) {
     return () => {
       cancelled = true;
     };
-  }, [products, token]);
+  }, [products]);
 
   const { categoryMap, topProducts, stockProducts } = useMemo(() => {
     const nextCategoryMap = {};

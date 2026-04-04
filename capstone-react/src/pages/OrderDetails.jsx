@@ -1,8 +1,9 @@
 import "./OrderDetails.css";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getOrderDetails, cancelOrderRequest, returnOrderRequest } from "../api";
 import loadingGif from "../assets/loading.gif";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 const DEFAULT_RETURN_WINDOW_DAYS = 7;
 
@@ -13,6 +14,8 @@ function OrderDetails() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [remaining, setRemaining] = useState(null);
+  const { showSnackbar } = useSnackbar();
+  const previousStatusRef = useRef(null);
 
   function getReturnDeadline(currentOrder) {
     if (!currentOrder?.delivered_at) return null;
@@ -28,34 +31,41 @@ function OrderDetails() {
     return Boolean(deadline && Date.now() <= deadline.getTime());
   }
 
-  useEffect(() => {
-    async function load() {
-      const data = await getOrderDetails(id);
-      setOrder(data);
+  const loadOrder = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
+    const data = await getOrderDetails(id);
+    if (silent && previousStatusRef.current === "dispatched" && data.status === "delivered") {
+      showSnackbar(`Order #${data.id} has been delivered.`, "success");
+    }
+    previousStatusRef.current = data.status;
+    setOrder(data);
+
+    if (!silent) {
       setLoading(false);
     }
-    load();
-  }, [id]);
+  }, [id, showSnackbar]);
+
+  useEffect(() => {
+    loadOrder().catch(() => navigate("/customerOrders"));
+  }, [loadOrder, navigate]);
 
   useEffect(() => {
     if (!order) return;
 
     let interval = null;
     if (order.status === "dispatched") {
-      interval = setInterval(async () => {
-        const updated = await getOrderDetails(id);
-        setOrder(updated);
-        if (updated.status !== "dispatched") {
-          clearInterval(interval);
-          setRemaining(null);
-        }
-      }, 15000);
+      interval = setInterval(() => {
+        loadOrder({ silent: true }).catch(() => null);
+      }, 5000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [order, id]);
+  }, [order, loadOrder]);
 
   useEffect(() => {
     if (!order || order.status !== "dispatched" || !order.delivered_at) {
@@ -80,7 +90,7 @@ function OrderDetails() {
     try {
       setActionLoading(true);
       const data = await cancelOrderRequest(id);
-      console.info(data.message);
+      showSnackbar(data.message || "Order cancelled successfully.", "success");
       navigate("/customerOrders");
     } finally {
       setActionLoading(false);
@@ -92,11 +102,10 @@ function OrderDetails() {
     try {
       setActionLoading(true);
       const data = await returnOrderRequest(id);
-      console.info(data.message);
-      const updated = await getOrderDetails(id);
-      setOrder(updated);
+      showSnackbar(data.message || "Order returned successfully.", "success");
+      await loadOrder({ silent: true });
     } catch (err) {
-      alert(err.message || "Failed to return order");
+      showSnackbar(err.message || "Failed to return order", "error");
     } finally {
       setActionLoading(false);
     }

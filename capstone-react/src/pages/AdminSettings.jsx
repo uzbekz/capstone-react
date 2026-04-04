@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAppSettings, getProfile, updateAppSettings } from "../api";
 import loadingGif from "../assets/loading.gif";
+import { useSnackbar } from "../components/SnackbarProvider";
 import "./AdminSettings.css";
 
 const fieldConfig = [
@@ -49,6 +50,7 @@ function AdminSettings() {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState(null);
   const [values, setValues] = useState({});
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     async function bootstrap() {
@@ -61,6 +63,7 @@ function AdminSettings() {
         setProfile(currentProfile);
         setValues(settings);
       } catch (err) {
+        showSnackbar(err.message || "Failed to load settings", "error");
         console.error(err.message || "Failed to load settings");
         navigate("/mainPage");
       } finally {
@@ -89,9 +92,9 @@ function AdminSettings() {
       setSaving(true);
       const response = await updateAppSettings(payload);
       setValues(response.settings);
-      alert("Settings updated successfully.");
+      showSnackbar("Settings updated successfully.", "success");
     } catch (err) {
-      alert(err.message || "Failed to update settings");
+      showSnackbar(err.message || "Failed to update settings", "error");
     } finally {
       setSaving(false);
     }

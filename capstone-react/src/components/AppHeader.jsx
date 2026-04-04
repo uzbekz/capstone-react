@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { getProfile } from "../api";
+import { getProfile, logout } from "../api";
 import "./AppHeader.css";
 
 const hiddenPaths = new Set(["/", "/register", "/forgot-password"]);
@@ -24,9 +24,7 @@ function AppHeader() {
     let cancelled = false;
 
     async function loadProfile() {
-      const token = localStorage.getItem("token");
-
-      if (!token || hiddenPaths.has(location.pathname)) {
+      if (hiddenPaths.has(location.pathname)) {
         setProfile(null);
         return;
       }
@@ -82,9 +80,12 @@ function AppHeader() {
     : null;
 
   function handleLogout() {
-    localStorage.clear();
-    setProfile(null);
-    navigate("/");
+    logout()
+      .catch(() => null)
+      .finally(() => {
+        setProfile(null);
+        navigate("/");
+      });
   }
 
   return (

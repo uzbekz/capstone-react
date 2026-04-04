@@ -17,6 +17,7 @@ import AdminUsers from './pages/AdminUsers.jsx'
 import ForgotPassword from "./pages/ForgotPassword.jsx"
 import Breadcrumbs from "./components/Breadcrumbs.jsx"
 import AppHeader from "./components/AppHeader.jsx"
+import { SnackbarProvider } from "./components/SnackbarProvider.jsx"
 import "./App.css"
 
 function App() {
@@ -33,7 +34,7 @@ function App() {
   }, [])
   
   return (
-    <>
+    <SnackbarProvider>
       <AppHeader />
       <Breadcrumbs />
       <Routes>
@@ -54,7 +55,7 @@ function App() {
         <Route path="/adminUsers/approvals" element={<AdminUsers />}/>
         <Route path="/adminApprovals" element={<Navigate to="/adminUsers/approvals" replace />}/>
       </Routes>
-    </>
+    </SnackbarProvider>
   )
 }
 

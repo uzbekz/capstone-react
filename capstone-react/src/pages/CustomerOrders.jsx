@@ -1,20 +1,21 @@
 import "./CustomerOrders.css";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
-import { cancelOrderRequest, returnOrderRequest } from "../api";
+import { cancelOrderRequest, returnOrderRequest, getCustomerOrders } from "../api";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 const DEFAULT_RETURN_WINDOW_DAYS = 7;
 
 function CustomerOrders() {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
-
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
   const [returningId, setReturningId] = useState(null);
+  const { showSnackbar } = useSnackbar();
+  const previousStatusesRef = useRef(new Map());
 
   function getReturnDeadline(order) {
     if (!order?.delivered_at) return null;
@@ -30,31 +31,30 @@ function CustomerOrders() {
     return Boolean(deadline && Date.now() <= deadline.getTime());
   }
 
-  useEffect(() => {
-    if (!token) navigate("/");
-  }, [token, navigate]);
+  const loadOrders = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
 
-  async function loadOrders() {
-    setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:5000/orders", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        const msg = data && data.error ? data.error : "Server error";
-        console.error("GET /orders failed", data);
-        setError(msg);
-        setOrders([]);
-        return;
-      }
+      const data = await getCustomerOrders();
 
       if (Array.isArray(data)) {
-        setOrders(data);
+        setOrders((currentOrders) => {
+          if (silent) {
+            const previousStatuses = previousStatusesRef.current;
+            data.forEach((order) => {
+              const previousStatus = previousStatuses.get(order.id);
+              if (previousStatus === "dispatched" && order.status === "delivered") {
+                showSnackbar(`Order #${order.id} has been delivered.`, "success");
+              }
+            });
+          }
+
+          previousStatusesRef.current = new Map(data.map((order) => [order.id, order.status]));
+          return data;
+        });
       } else {
         console.error("Unexpected /orders response", data);
         setError("Unexpected server response");
@@ -64,18 +64,30 @@ function CustomerOrders() {
       console.error(err);
       setError(err.message || "Network error");
       setOrders([]);
+      throw err;
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  }
+  }, [showSnackbar]);
 
   useEffect(() => {
-    if (!token) navigate("/");
-  }, [token, navigate]);
+    loadOrders().catch(() => navigate("/"));
+  }, [loadOrders, navigate]);
 
   useEffect(() => {
-    loadOrders();
-  }, [token]);
+    const hasDispatchedOrder = orders.some((order) => order.status === "dispatched");
+    if (!hasDispatchedOrder) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      loadOrders({ silent: true }).catch(() => null);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [orders, loadOrders]);
 
   return (
     <div style={{ padding: "24px" }}>
@@ -135,7 +147,7 @@ function CustomerOrders() {
                       try {
                         setCancellingId(order.id);
                         const data = await cancelOrderRequest(order.id);
-                        console.info(data.message);
+                        showSnackbar(data.message || "Order cancelled successfully.", "success");
                         setOrders((prev) =>
                           prev.map((currentOrder) =>
                             currentOrder.id === order.id
@@ -144,7 +156,7 @@ function CustomerOrders() {
                           ),
                         );
                       } catch (err) {
-                        alert(err.message || "Failed to cancel order");
+                        showSnackbar(err.message || "Failed to cancel order", "error");
                       } finally {
                         setCancellingId(null);
                       }
@@ -163,7 +175,7 @@ function CustomerOrders() {
                       try {
                         setReturningId(order.id);
                         const data = await returnOrderRequest(order.id);
-                        console.info(data.message);
+                        showSnackbar(data.message || "Order returned successfully.", "success");
                         setOrders((prev) =>
                           prev.map((currentOrder) =>
                             currentOrder.id === order.id
@@ -172,7 +184,7 @@ function CustomerOrders() {
                           ),
                         );
                       } catch (err) {
-                        alert(err.message || "Failed to return order");
+                        showSnackbar(err.message || "Failed to return order", "error");
                       } finally {
                         setReturningId(null);
                       }

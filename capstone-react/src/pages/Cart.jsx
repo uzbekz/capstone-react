@@ -6,22 +6,25 @@ import {
   updateCartItem,
   removeCartItem,
   clearCartRequest,
+  createOrder,
 } from "../api";
 import loadingGif from "../assets/loading.gif";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 function Cart() {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const { showSnackbar } = useSnackbar();
 
   const fetchCart = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getCart();
       if (data.message && !Array.isArray(data)) {
+        showSnackbar(data.message || "Failed to load cart", "error");
         console.error(data.message || "Failed to load cart");
         setCart([]);
       } else {
@@ -38,6 +41,7 @@ function Cart() {
         setCart(items);
       }
     } catch (err) {
+      showSnackbar("Network error loading cart", "error");
       console.error(err);
       console.error("Network error loading cart");
     } finally {
@@ -46,12 +50,8 @@ function Cart() {
   }, []);
 
   useEffect(() => {
-    if (!token) {
-      navigate("/");
-    } else {
-      fetchCart();
-    }
-  }, [token, navigate, fetchCart]);
+    fetchCart().catch(() => navigate("/"));
+  }, [navigate, fetchCart]);
 
   const totalPrice = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -63,6 +63,7 @@ function Cart() {
       setActionLoading(true);
       const data = await updateCartItem(item.cartItemId, Number(qty));
       if (data.message && !data.id) {
+        showSnackbar(data.message || "Could not update quantity", "error");
         console.error(data.message || "Could not update quantity");
       } else {
         setCart((prev) =>
@@ -72,6 +73,7 @@ function Cart() {
         );
       }
     } catch (err) {
+      showSnackbar("Network error while updating your cart", "error");
       console.error(err);
       console.error("Network error");
     } finally {
@@ -86,6 +88,7 @@ function Cart() {
       await removeCartItem(item.cartItemId);
       setCart((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
     } catch (err) {
+      showSnackbar("Network error while removing this item", "error");
       console.error(err);
       console.error("Network error");
     } finally {
@@ -98,9 +101,11 @@ function Cart() {
       setActionLoading(true);
       const data = await clearCartRequest();
       if (data.message && data.message.includes("Unable")) {
+        showSnackbar(data.message, "error");
         console.error(data.message);
       }
     } catch (err) {
+      showSnackbar("Network error while clearing the cart", "error");
       console.error(err);
       console.error("Network error");
     } finally {
@@ -111,6 +116,7 @@ function Cart() {
 
   async function checkout() {
     if (cart.length === 0) {
+      showSnackbar("Your cart is empty.", "warning");
       console.warn("Cart is empty!");
       return;
     }
@@ -122,26 +128,13 @@ function Cart() {
 
     try {
       setCheckoutLoading(true);
-      const res = await fetch("http://localhost:5000/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ items }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        console.info("Order placed successfully!");
-        await clearCartRequest();
-        setCart([]);
-        navigate("/customerOrders");
-      } else {
-        console.error(data.message);
-      }
+      await createOrder(items);
+      showSnackbar("Order placed successfully.", "success");
+      await clearCartRequest();
+      setCart([]);
+      navigate("/customerOrders");
     } catch (err) {
+      showSnackbar(err.message || "Network error while checking out", "error");
       console.error(err);
       console.error("Network error while checking out");
     } finally {

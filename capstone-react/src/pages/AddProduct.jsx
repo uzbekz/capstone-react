@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "./AddProduct.css";
 import { getProductById, addProduct, updateProduct } from "../api";
 import loadingGif from "../assets/loading.gif";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 function AddProduct({ productId, setProductId, categories }) {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ function AddProduct({ productId, setProductId, categories }) {
   const [weight, setWeight] = useState("");
   const [image, setImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     async function loadProduct() {
@@ -61,12 +63,15 @@ function AddProduct({ productId, setProductId, categories }) {
     try {
       if (productId) {
         await updateProduct(productId, formData);
+        showSnackbar("Product updated successfully.", "success");
       } else {
         await addProduct(formData);
+        showSnackbar("Product added successfully.", "success");
       }
       setProductId(null);
       navigate("/mainPage");
     } catch (err) {
+      showSnackbar(err.message || "Failed to save product", "error");
       console.error("Error: " + (err.message || "Failed to save product"));
       setIsSubmitting(false);
     }

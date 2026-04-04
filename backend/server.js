@@ -3,14 +3,19 @@ import multer from 'multer';
 import Product from './models/Product.js';
 import sequelize from './db.js';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth.js';
 import { authenticate, authorize } from './middleware/auth.js';
 import User from './models/User.js';
+import UserSession from './models/UserSession.js';
 import Order from "./models/Order.js";
 import OrderItem from "./models/OrderItem.js";
 import Cart from "./models/Cart.js";
 import AppSetting from "./models/AppSetting.js";
 import { Op } from "sequelize";
+import { hashToken } from './middleware/auth.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_APP_SETTINGS = {
@@ -21,6 +26,44 @@ const DEFAULT_APP_SETTINGS = {
   default_restock_increment: 100,
   max_cart_quantity: 10
 };
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || FRONTEND_URL)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const CSRF_EXEMPT_PATHS = new Set([
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/forgot-password",
+  "/auth/reset-password"
+]);
+
+function isStateChangingMethod(method) {
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+}
+
+async function csrfProtection(req, res, next) {
+  if (!isStateChangingMethod(req.method) || CSRF_EXEMPT_PATHS.has(req.path)) {
+    return next();
+  }
+
+  const csrfToken = req.cookies?.csrf_token;
+  const csrfHeader = req.get("x-csrf-token");
+
+  if (!csrfToken || !csrfHeader || csrfToken !== csrfHeader) {
+    return res.status(403).json({ message: "CSRF validation failed" });
+  }
+
+  if (req.session) {
+    const csrfHash = hashToken(csrfToken);
+    if (req.session.csrf_token_hash !== csrfHash) {
+      return res.status(403).json({ message: "CSRF validation failed" });
+    }
+  }
+
+  next();
+}
 
 async function getAppSettingsMap() {
   const rows = await AppSetting.findAll();
@@ -70,6 +113,8 @@ OrderItem.belongsTo(Product, { foreignKey: "product_id" });
 // cart associations (already defined in model file too, but ensure here for sync.)
 User.hasMany(Cart, { foreignKey: "user_id" });
 Cart.belongsTo(User, { foreignKey: "user_id" });
+User.hasMany(UserSession, { foreignKey: "user_id" });
+UserSession.belongsTo(User, { foreignKey: "user_id" });
 
 Product.hasMany(Cart, { foreignKey: "product_id" });
 Cart.belongsTo(Product, { foreignKey: "product_id" });
@@ -77,8 +122,35 @@ Cart.belongsTo(Product, { foreignKey: "product_id" });
 
 const app = express();
 
-app.use(cors());
+app.disable("x-powered-by");
+app.use(helmet({
+  crossOriginResourcePolicy: false
+}));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Origin not allowed by CORS"));
+  },
+  credentials: true
+}));
+app.use(cookieParser());
 app.use(express.json());
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.PUBLIC_API_RATE_LIMIT || 200),
+  standardHeaders: true,
+  legacyHeaders: false
+}));
+app.use("/auth", rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT || 20),
+  standardHeaders: true,
+  legacyHeaders: false
+}));
+app.use(csrfProtection);
 
 app.use('/auth', authRoutes);
 

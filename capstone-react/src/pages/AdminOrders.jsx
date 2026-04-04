@@ -2,7 +2,12 @@ import "./AdminOrders.css";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
-import { dispatchOrderRequest, getAllOrders, cancelOrderRequest } from "../api";
+import {
+  bulkDispatchOrdersRequest,
+  dispatchOrderRequest,
+  getAllOrders,
+  cancelOrderRequest
+} from "../api";
 import { useSnackbar } from "../components/SnackbarProvider";
 
 function getLocalDateString(date = new Date()) {
@@ -101,6 +106,36 @@ function AdminOrders() {
     }
   }
 
+  const pendingCount = orders.filter((o) => o.status === "pending").length;
+
+  async function bulkDispatch() {
+    if (pendingCount === 0) {
+      showSnackbar("No pending orders to process.", "error");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Dispatch all ${pendingCount} pending order(s)? Orders without enough stock will be cancelled.`
+      )
+    ) {
+      return;
+    }
+    try {
+      setLoading(true);
+      const data = await bulkDispatchOrdersRequest();
+      const d = data.dispatched?.length ?? 0;
+      const c = data.cancelled?.length ?? 0;
+      showSnackbar(
+        data.message || `Dispatched ${d}, cancelled ${c} (insufficient stock).`,
+        c > 0 ? "warning" : "success"
+      );
+      await loadOrders();
+    } catch (err) {
+      showSnackbar(err.message || "Bulk dispatch failed", "error");
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="admin-orders">
       <h1>Manage Orders</h1>
@@ -134,6 +169,20 @@ function AdminOrders() {
           onClick={() => setFilterMode("all")}
         >
           All Time
+        </button>
+
+        <button
+          type="button"
+          className="btn-bulk-dispatch"
+          onClick={bulkDispatch}
+          disabled={pendingCount === 0}
+          title={
+            pendingCount === 0
+              ? "No pending orders"
+              : `Dispatch ${pendingCount} pending order(s); cancel if stock is insufficient`
+          }
+        >
+          Bulk dispatch
         </button>
       </div>
 
@@ -184,9 +233,9 @@ function AdminOrders() {
                     <span>Total:</span> <strong>Rs {order.total_price}</strong>
                   </p>
                   <p>
-                    <span>Date:</span>{" "}
+                    <span>Placed:</span>{" "}
                     <strong>
-                      {new Date(order.createdAt || order.created_at).toLocaleDateString()}
+                      {new Date(order.createdAt || order.created_at).toLocaleString()}
                     </strong>
                   </p>
                 </div>

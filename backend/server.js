@@ -504,6 +504,110 @@ app.patch(
   }
 );
 
+app.patch(
+  "/orders/bulk-dispatch",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const pendingOrders = await Order.findAll({
+        where: { status: "pending" },
+        order: [["created_at", "ASC"]]
+      });
+
+      const deliveryMinMinutes = await getNumericSetting("delivery_min_minutes");
+      const deliveryMaxMinutes = await getNumericSetting("delivery_max_minutes");
+      const minMinutes = Math.min(deliveryMinMinutes, deliveryMaxMinutes);
+      const maxMinutes = Math.max(deliveryMinMinutes, deliveryMaxMinutes);
+
+      const dispatched = [];
+      const cancelled = [];
+
+      for (const orderRow of pendingOrders) {
+        const order = await Order.findByPk(orderRow.id);
+        if (!order || order.status !== "pending") continue;
+
+        const items = await OrderItem.findAll({
+          where: { order_id: order.id }
+        });
+
+        const simulatedStock = new Map();
+
+        let canDispatch = true;
+        let cancelReason = "";
+
+        for (const item of items) {
+          let available = simulatedStock.get(item.product_id);
+          if (available === undefined) {
+            const product = await Product.findByPk(item.product_id);
+            if (!product) {
+              canDispatch = false;
+              cancelReason = "Product no longer exists";
+              break;
+            }
+            available = product.quantity;
+            simulatedStock.set(item.product_id, available);
+          }
+
+          if (available < item.quantity) {
+            canDispatch = false;
+            const product = await Product.findByPk(item.product_id);
+            const name = product?.name || `product #${item.product_id}`;
+            cancelReason = `Insufficient stock for ${name} (ordered ${item.quantity}, available ${available})`;
+            break;
+          }
+
+          simulatedStock.set(item.product_id, available - item.quantity);
+        }
+
+        if (!canDispatch) {
+          await order.update({ status: "cancelled" });
+          cancelled.push({ id: order.id, reason: cancelReason });
+          continue;
+        }
+
+        for (const item of items) {
+          const product = await Product.findByPk(item.product_id);
+          await product.update({
+            quantity: product.quantity - item.quantity
+          });
+        }
+
+        const minutes =
+          Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
+        const deliveredAt = new Date(Date.now() + minutes * 60 * 1000);
+
+        await order.update({ status: "dispatched", delivered_at: deliveredAt });
+
+        const orderId = order.id;
+        setTimeout(async () => {
+          try {
+            const o = await Order.findByPk(orderId);
+            if (o && o.status === "dispatched") {
+              await o.update({ status: "delivered", delivered_at: new Date() });
+              console.log(
+                `Order ${o.id} automatically marked delivered at ${new Date().toISOString()}`
+              );
+            }
+          } catch (err) {
+            console.error("auto-deliver error for order", orderId, err);
+          }
+        }, minutes * 60 * 1000);
+
+        dispatched.push({ id: order.id, eta_minutes: minutes });
+      }
+
+      res.json({
+        message: `Bulk dispatch complete: ${dispatched.length} dispatched, ${cancelled.length} cancelled.`,
+        dispatched,
+        cancelled
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
 // ----- cart endpoints -----
 // get current user cart items
 app.get(

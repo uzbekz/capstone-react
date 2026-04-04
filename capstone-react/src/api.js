@@ -222,6 +222,12 @@ export async function dispatchOrderRequest(orderId) {
   });
 }
 
+export async function bulkDispatchOrdersRequest() {
+  return request("/orders/bulk-dispatch", {
+    method: "PATCH"
+  });
+}
+
 export async function getDashboardReports() {
   return request("/reports/overview");
 }

@@ -15,6 +15,7 @@ function MainPage({ setProductId, categories, products, setProducts }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
+  const [bulkQuantity, setBulkQuantity] = useState("");
   const [settings, setSettings] = useState({
     low_stock_threshold: 10,
     default_restock_increment: 100
@@ -137,6 +138,47 @@ function MainPage({ setProductId, categories, products, setProducts }) {
     }
   }
 
+  async function applyBulkRestock(targetProducts, amount, successMessage) {
+    const parsedAmount = Number(amount);
+    if (!Number.isInteger(parsedAmount) || parsedAmount <= 0) {
+      showSnackbar("Enter a valid bulk quantity greater than zero.", "warning");
+      return;
+    }
+
+    if (!targetProducts.length) {
+      showSnackbar("No products matched the selected bulk operation.", "warning");
+      return;
+    }
+
+    try {
+      setGridLoading(true);
+      await Promise.all(
+        targetProducts.map((product) =>
+          updateProduct(product.id, { quantity: Number(product.quantity) + parsedAmount }),
+        ),
+      );
+
+      const updatedIds = new Set(targetProducts.map((product) => product.id));
+      setProducts((prev) =>
+        prev.map((product) =>
+          updatedIds.has(product.id)
+            ? { ...product, quantity: Number(product.quantity) + parsedAmount }
+            : product,
+        ),
+      );
+      showSnackbar(successMessage, "success");
+      setBulkQuantity("");
+    } catch (err) {
+      showSnackbar(err.message || "Bulk operation failed.", "error");
+    } finally {
+      setGridLoading(false);
+    }
+  }
+
+  const lowStockFilteredProducts = filteredProducts.filter(
+    (product) => product.quantity < settings.low_stock_threshold,
+  );
+
   return (
     <>
       <div className="search-bar-container">
@@ -162,6 +204,61 @@ function MainPage({ setProductId, categories, products, setProducts }) {
           <option value="quantity-low-to-high">Qty low-high</option>
           <option value="quantity-high-to-low">Qty high-low</option>
         </select>
+      </div>
+
+      <div className="bulk-operations-bar">
+        <div className="bulk-operations-copy">
+          <h3>Bulk Operations</h3>
+          <p>Apply quick stock actions to the products currently visible in the grid.</p>
+        </div>
+
+        <div className="bulk-operations-controls">
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={bulkQuantity}
+            onChange={(event) => setBulkQuantity(event.target.value)}
+            placeholder={`Qty (default ${settings.default_restock_increment})`}
+          />
+          <button
+            type="button"
+            onClick={() =>
+              applyBulkRestock(
+                filteredProducts,
+                bulkQuantity || settings.default_restock_increment,
+                "Visible products restocked successfully.",
+              )
+            }
+          >
+            Restock Visible
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() =>
+              applyBulkRestock(
+                lowStockFilteredProducts,
+                bulkQuantity || settings.default_restock_increment,
+                "Low-stock products restocked successfully.",
+              )
+            }
+          >
+            Restock Low Stock
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              setSearch("");
+              setCategory("all");
+              setSort("default");
+              setBulkQuantity("");
+            }}
+          >
+            Reset Filters
+          </button>
+        </div>
       </div>
 
       {gridLoading ? (
@@ -210,16 +307,37 @@ function MainPage({ setProductId, categories, products, setProducts }) {
                     <p>Weight: {product.weight}</p>
                   </div>
 
-                  <button onClick={() => editProduct(product.id)}>Edit</button>
-                  <button onClick={() => deleteItem(product.id)} disabled={actionLoadingId === product.id}>
-                    {actionLoadingId === product.id ? "Deleting..." : "Delete"}
-                  </button>
-                  <button
-                    onClick={() => restock(product.id, settings.default_restock_increment)}
-                    disabled={actionLoadingId === product.id}
-                  >
-                    {actionLoadingId === product.id ? "Updating..." : `+${settings.default_restock_increment}`}
-                  </button>
+                  <div className="product-actions">
+                    <button
+                      type="button"
+                      className="product-action-button"
+                      onClick={() => editProduct(product.id)}
+                      title="Edit product"
+                      aria-label={`Edit ${product.name}`}
+                    >
+                      &#9998;
+                    </button>
+                    <button
+                      type="button"
+                      className="product-action-button danger"
+                      onClick={() => deleteItem(product.id)}
+                      disabled={actionLoadingId === product.id}
+                      title="Delete product"
+                      aria-label={`Delete ${product.name}`}
+                    >
+                      &#128465;
+                    </button>
+                    <button
+                      type="button"
+                      className="product-action-button accent"
+                      onClick={() => restock(product.id, settings.default_restock_increment)}
+                      disabled={actionLoadingId === product.id}
+                      title={`Restock by ${settings.default_restock_increment}`}
+                      aria-label={`Restock ${product.name}`}
+                    >
+                      &#43;
+                    </button>
+                  </div>
                 </div>
               );
             })}

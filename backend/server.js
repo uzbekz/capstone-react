@@ -182,6 +182,14 @@ sequelize.sync({ alter: true })
   .catch(err => console.error("Sync error:", err))
 
 // Public routes
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "capstone-backend",
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get("/products", async (req, res) => {
   try {
     const { search, category, sort } = req.query;

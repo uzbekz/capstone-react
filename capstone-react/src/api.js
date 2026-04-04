@@ -1,5 +1,11 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
+function redirectToLogin() {
+  if (typeof window !== "undefined" && window.location.pathname !== "/") {
+    window.location.href = "/";
+  }
+}
+
 function getCookie(name) {
   const cookie = document.cookie
     .split("; ")
@@ -52,8 +58,17 @@ async function request(path, options = {}, retry = true) {
   });
 
   if (res.status === 401 && retry && !path.startsWith("/auth/")) {
-    await refreshSession();
-    return request(path, options, false);
+    try {
+      await refreshSession();
+      return request(path, options, false);
+    } catch (error) {
+      redirectToLogin();
+      throw error;
+    }
+  }
+
+  if (res.status === 401 && !path.startsWith("/auth/")) {
+    redirectToLogin();
   }
 
   return handleResponse(res);

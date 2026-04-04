@@ -4,26 +4,38 @@ import { getAppSettings, getDashboardReports, getProducts } from "../api.js";
 import Chart from "chart.js/auto";
 import loadingGif from "../assets/loading.gif";
 
+function formatDateForInput(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function getDefaultDateRange() {
+  const today = new Date();
+  const yearStart = new Date(today.getFullYear(), 0, 1);
+
+  return {
+    start: formatDateForInput(yearStart),
+    end: formatDateForInput(today),
+  };
+}
+
 function Dashboard({ products }) {
+  const defaultDateRange = useMemo(() => getDefaultDateRange(), []);
   const [localProducts, setLocalProducts] = useState([]);
   const [reports, setReports] = useState({});
   const [settings, setSettings] = useState({ low_stock_threshold: 10 });
   const [loading, setLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.start);
+  const [dateTo, setDateTo] = useState(defaultDateRange.end);
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
+  const trendChartRef = useRef(null);
   const categoryChartRef = useRef(null);
-  const stockChartRef = useRef(null);
-  const topProductsChartRef = useRef(null);
-  const revenueChartRef = useRef(null);
   const ordersChartRef = useRef(null);
+  const stockChartRef = useRef(null);
   const chartsRef = useRef([]);
-
-  const lowStockItems = useMemo(
-    () =>
-      localProducts
-        .filter((product) => product.quantity < settings.low_stock_threshold)
-        .sort((a, b) => a.quantity - b.quantity),
-    [localProducts, settings.low_stock_threshold],
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -39,11 +51,14 @@ function Dashboard({ products }) {
         const [productData, reportData, settingsData] = await Promise.all([
           productsPromise,
           reportsPromise,
-          settingsPromise
+          settingsPromise,
         ]);
+
         if (cancelled) return;
 
-        setLocalProducts(productData || []);
+        const normalizedProducts = productData || [];
+
+        setLocalProducts(normalizedProducts);
         setReports(reportData || {});
         setSettings({ low_stock_threshold: settingsData?.low_stock_threshold || 10 });
       } catch (err) {
@@ -59,93 +74,159 @@ function Dashboard({ products }) {
     };
   }, [products]);
 
-  const { categoryMap, topProducts, stockProducts } = useMemo(() => {
-    const nextCategoryMap = {};
-    localProducts.forEach((product) => {
-      nextCategoryMap[product.category] = (nextCategoryMap[product.category] || 0) + 1;
+  const categories = useMemo(
+    () => [...new Set(localProducts.map((product) => product.category).filter(Boolean))].sort(),
+    [localProducts],
+  );
+
+  const filteredProducts = useMemo(() => {
+    return localProducts.filter((product) => {
+      const createdDate = formatDateForInput(product.created_at || product.createdAt);
+      const matchesFrom = !dateFrom || (createdDate && createdDate >= dateFrom);
+      const matchesTo = !dateTo || (createdDate && createdDate <= dateTo);
+      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
+
+      return matchesFrom && matchesTo && matchesCategory;
     });
+  }, [localProducts, dateFrom, dateTo, selectedCategory]);
 
-    const nextTopProducts = [...localProducts]
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5);
-
-    const nextStockProducts = [...localProducts]
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 10);
+  const filteredMetrics = useMemo(() => {
+    const totalProducts = filteredProducts.length;
+    const totalStock = filteredProducts.reduce((sum, product) => sum + Number(product.quantity), 0);
+    const inventoryValue = filteredProducts.reduce(
+      (sum, product) => sum + Number(product.price) * Number(product.quantity),
+      0,
+    );
+    const lowStockCount = filteredProducts.filter(
+      (product) => Number(product.quantity) < settings.low_stock_threshold,
+    ).length;
+    const activeCategories = new Set(filteredProducts.map((product) => product.category).filter(Boolean)).size;
 
     return {
-      categoryMap: nextCategoryMap,
-      topProducts: nextTopProducts,
-      stockProducts: nextStockProducts,
+      totalProducts,
+      totalStock,
+      inventoryValue,
+      lowStockCount,
+      activeCategories,
     };
-  }, [localProducts]);
+  }, [filteredProducts, settings.low_stock_threshold]);
+
+  const categoryMap = useMemo(() => {
+    const map = {};
+    filteredProducts.forEach((product) => {
+      map[product.category] = (map[product.category] || 0) + 1;
+    });
+    return map;
+  }, [filteredProducts]);
+
+  const stockBreakdown = useMemo(() => {
+    return [...filteredProducts]
+      .sort((a, b) => Number(b.quantity) - Number(a.quantity))
+      .slice(0, 6);
+  }, [filteredProducts]);
+
+  const topProducts = useMemo(() => {
+    return [...filteredProducts]
+      .sort((a, b) => Number(b.quantity) - Number(a.quantity))
+      .slice(0, 6);
+  }, [filteredProducts]);
+
+  const lowStockItems = useMemo(() => {
+    return [...filteredProducts]
+      .filter((product) => Number(product.quantity) < settings.low_stock_threshold)
+      .sort((a, b) => Number(a.quantity) - Number(b.quantity))
+      .slice(0, 6);
+  }, [filteredProducts, settings.low_stock_threshold]);
 
   useEffect(() => {
-    if (!localProducts.length) return;
-
     chartsRef.current.forEach((chart) => chart.destroy());
     chartsRef.current = [];
 
-    const categoryChart = new Chart(categoryChartRef.current, {
-      type: "bar",
-      data: {
-        labels: Object.keys(categoryMap),
-        datasets: [
-          {
-            label: "Products per Category",
-            data: Object.values(categoryMap),
-          },
-        ],
-      },
-    });
-
-    const stockChart = new Chart(stockChartRef.current, {
-      type: "pie",
-      data: {
-        labels: stockProducts.map((product) => product.name),
-        datasets: [
-          {
-            label: "Stock Distribution (Top 10)",
-            data: stockProducts.map((product) => product.quantity),
-          },
-        ],
-      },
-    });
-
-    const topChart = new Chart(topProductsChartRef.current, {
-      type: "bar",
-      data: {
-        labels: topProducts.map((product) => product.name),
-        datasets: [
-          {
-            label: "Top 5 Stocked Products",
-            data: topProducts.map((product) => product.quantity),
-          },
-        ],
-      },
-    });
-
-    if (reports.revenueByMonth) {
-      const revChart = new Chart(revenueChartRef.current, {
+    if (trendChartRef.current && reports.revenueByMonth?.length) {
+      const trendChart = new Chart(trendChartRef.current, {
         type: "line",
         data: {
           labels: reports.revenueByMonth.map((item) => item.month),
           datasets: [
             {
-              label: "Revenue",
+              label: "Cost (INR)",
               data: reports.revenueByMonth.map((item) => item.revenue),
-              borderColor: "#2563eb",
-              backgroundColor: "rgba(37,99,235,0.2)",
-              tension: 0.3,
+              borderColor: "#4ea66d",
+              backgroundColor: "rgba(78,166,109,0.16)",
+              pointBackgroundColor: "#ffffff",
+              pointBorderColor: "#4ea66d",
+              pointBorderWidth: 3,
+              pointRadius: 5,
+              tension: 0.25,
+              fill: false,
             },
           ],
         },
-        options: { scales: { y: { beginAtZero: true } } },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: "bottom",
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => `Rs ${value}`,
+              },
+              grid: {
+                color: "rgba(148, 163, 184, 0.2)",
+              },
+            },
+            x: {
+              grid: {
+                color: "rgba(148, 163, 184, 0.12)",
+              },
+            },
+          },
+        },
       });
-      chartsRef.current.push(revChart);
+      chartsRef.current.push(trendChart);
     }
 
-    if (reports.monthlyOrders) {
+    if (categoryChartRef.current && Object.keys(categoryMap).length) {
+      const categoryChart = new Chart(categoryChartRef.current, {
+        type: "bar",
+        data: {
+          labels: Object.keys(categoryMap),
+          datasets: [
+            {
+              label: "Products",
+              data: Object.values(categoryMap),
+              backgroundColor: "#5d7bd4",
+              borderRadius: 10,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: "rgba(148, 163, 184, 0.18)" },
+            },
+            x: {
+              grid: { display: false },
+            },
+          },
+        },
+      });
+      chartsRef.current.push(categoryChart);
+    }
+
+    if (ordersChartRef.current && reports.monthlyOrders?.length) {
       const ordersChart = new Chart(ordersChartRef.current, {
         type: "bar",
         data: {
@@ -154,30 +235,65 @@ function Dashboard({ products }) {
             {
               label: "Orders",
               data: reports.monthlyOrders.map((item) => item.orders),
-              backgroundColor: "#10b981",
+              backgroundColor: "#df9244",
+              borderRadius: 10,
             },
           ],
         },
-        options: { scales: { y: { beginAtZero: true } } },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: "bottom",
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: "rgba(148, 163, 184, 0.18)" },
+            },
+            x: {
+              grid: { display: false },
+            },
+          },
+        },
       });
       chartsRef.current.push(ordersChart);
     }
 
-    chartsRef.current.push(categoryChart, stockChart, topChart);
+    if (stockChartRef.current && stockBreakdown.length) {
+      const stockChart = new Chart(stockChartRef.current, {
+        type: "doughnut",
+        data: {
+          labels: stockBreakdown.map((product) => product.name),
+          datasets: [
+            {
+              data: stockBreakdown.map((product) => Number(product.quantity)),
+              backgroundColor: ["#2e7d9a", "#5d7bd4", "#4ea66d", "#df9244", "#9d7ad4", "#d46b86"],
+              borderWidth: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "bottom",
+            },
+          },
+        },
+      });
+      chartsRef.current.push(stockChart);
+    }
 
     return () => {
       chartsRef.current.forEach((chart) => chart.destroy());
       chartsRef.current = [];
     };
-  }, [categoryMap, topProducts, stockProducts, reports, localProducts.length]);
-
-  const totalProducts = localProducts.length;
-  const totalStock = localProducts.reduce((sum, product) => sum + product.quantity, 0);
-  const lowStock = localProducts.filter((product) => product.quantity < settings.low_stock_threshold).length;
-  const inventoryValue = localProducts.reduce(
-    (sum, product) => sum + product.price * product.quantity,
-    0,
-  );
+  }, [reports, categoryMap, stockBreakdown]);
 
   if (loading) {
     return (
@@ -191,102 +307,237 @@ function Dashboard({ products }) {
   }
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <h1>Inventory Dashboard</h1>
-        <p className="subtitle">Real-time overview of products, stock and value</p>
+    <div className="dashboard dashboard-redesign">
+      <header className="dashboard-hero">
+        <div>
+          <p className="dashboard-kicker">Analytics & Insights</p>
+          <h1>Operations Dashboard</h1>
+          <p className="subtitle">
+            Review filtered inventory insights by date and category, while the cost trend stays pinned to full historical reporting data.
+          </p>
+        </div>
       </header>
 
-      <div className="stats">
-        <div className="card">
-          <span className="icon">P</span>
-          <h3>Total Products</h3>
-          <p>{totalProducts}</p>
-        </div>
+      <section className="dashboard-filter-bar">
+        <label>
+          <span>Product Added From</span>
+          <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+        </label>
+        <label>
+          <span>Product Added To</span>
+          <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+        </label>
+        <label className="dashboard-filter-wide">
+          <span>Category</span>
+          <select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)}>
+            <option value="all">All Categories</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
 
-        <div className="card">
-          <span className="icon">S</span>
-          <h3>Total Stock</h3>
-          <p>{totalStock}</p>
-        </div>
+      <section className="dashboard-stats">
+        <article className="dashboard-stat-card">
+          <span>Filtered Products</span>
+          <strong>{filteredMetrics.totalProducts}</strong>
+        </article>
+        <article className="dashboard-stat-card">
+          <span>Total Inventory Value</span>
+          <strong>Rs {filteredMetrics.inventoryValue.toFixed(0)}</strong>
+        </article>
+        <article className="dashboard-stat-card">
+          <span>Total Stock Units</span>
+          <strong>{filteredMetrics.totalStock}</strong>
+        </article>
+        <article className="dashboard-stat-card">
+          <span>Low Stock Alerts</span>
+          <strong>{filteredMetrics.lowStockCount}</strong>
+        </article>
+      </section>
 
-        <div className="card">
-          <span className="icon">L</span>
-          <h3>Low Stock</h3>
-          <p>{lowStock}</p>
-        </div>
-
-        <div className="card">
-          <span className="icon">V</span>
-          <h3>Inventory Value</h3>
-          <p>Rs {inventoryValue.toFixed(2)}</p>
-        </div>
-
-        {reports.mostSoldProduct && (
-          <div className="card">
-            <span className="icon">T</span>
-            <h3>Top Seller</h3>
-            <p>
-              {reports.mostSoldProduct.name} ({reports.mostSoldProduct.sold})
-            </p>
+      <section className="dashboard-filtered-section">
+        <div className="dashboard-section-head">
+          <div>
+            <p className="dashboard-section-kicker">Filtered Inventory View</p>
+            <h2>Insights From Current Filters</h2>
+            <p>Every panel in this section responds to the selected product-added date range and category.</p>
           </div>
-        )}
-
-        {reports.mostProfitableCategory && (
-          <div className="card">
-            <span className="icon">C</span>
-            <h3>Best Category</h3>
-            <p>{reports.mostProfitableCategory.category}</p>
+          <div className="dashboard-filter-badge">
+            <span>Scope</span>
+            <strong>{selectedCategory === "all" ? "All Categories" : selectedCategory}</strong>
+            <small>{filteredMetrics.activeCategories} active categories</small>
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="charts">
-        <div className="chart-card">
-          <h4>Products by Category</h4>
-          <canvas ref={categoryChartRef}></canvas>
-        </div>
-        <div className="chart-card">
-          <h4>Stock Distribution (Top 10)</h4>
-          <canvas ref={stockChartRef} className="pie-chart"></canvas>
-        </div>
-        <div className="chart-card">
-          <h4>Top 5 Stocked Products</h4>
-          <canvas ref={topProductsChartRef}></canvas>
-        </div>
-        <div className="chart-card">
-          <h4>Revenue Over Time</h4>
-          <canvas ref={revenueChartRef}></canvas>
-        </div>
-        <div className="chart-card">
-          <h4>Monthly Orders</h4>
-          <canvas ref={ordersChartRef}></canvas>
-        </div>
-      </div>
+        <div className="dashboard-grid dashboard-grid-two">
+          <article className="dashboard-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Inventory Volume by Category</h3>
+                <p>How many filtered products are present in each category.</p>
+              </div>
+            </div>
+            <div className="chart-frame">
+              <canvas ref={categoryChartRef}></canvas>
+            </div>
+          </article>
 
-      {lowStockItems.length > 0 && (
-        <section className="low-stock-table">
-          <h3>Low stock items (&lt; {settings.low_stock_threshold} units)</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lowStockItems.map((product) => (
-                <tr key={product.id}>
-                  <td>{product.name}</td>
-                  <td>{product.category}</td>
-                  <td>{product.quantity}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <article className="dashboard-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Top Stock Distribution</h3>
+                <p>Highest-volume products within the active filter scope.</p>
+              </div>
+            </div>
+            <div className="chart-frame stock-frame">
+              <canvas ref={stockChartRef}></canvas>
+            </div>
+          </article>
+        </div>
+
+        <div className="dashboard-grid dashboard-grid-two">
+          <article className="dashboard-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Top Stocked Products</h3>
+                <p>Highest-quantity products inside the current filtered view.</p>
+              </div>
+            </div>
+            <div className="insight-table-wrap">
+              <table className="insight-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topProducts.map((product) => (
+                    <tr key={product.id}>
+                      <td>{product.name}</td>
+                      <td>{product.category}</td>
+                      <td>{product.quantity}</td>
+                    </tr>
+                  ))}
+                  {topProducts.length === 0 && (
+                    <tr>
+                      <td colSpan="3" className="empty-cell">No products matched the current filters.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article className="dashboard-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Low Stock Watchlist</h3>
+                <p>Products below the threshold of {settings.low_stock_threshold} units.</p>
+              </div>
+            </div>
+            <div className="insight-table-wrap">
+              <table className="insight-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lowStockItems.map((product) => (
+                    <tr key={product.id}>
+                      <td>{product.name}</td>
+                      <td>{product.category}</td>
+                      <td>
+                        <span className="status-pill warning">{product.quantity} units</span>
+                      </td>
+                    </tr>
+                  ))}
+                  {lowStockItems.length === 0 && (
+                    <tr>
+                      <td colSpan="3" className="empty-cell">No low-stock products in the current filter scope.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section className="dashboard-reporting-section">
+        <div className="dashboard-section-head dashboard-section-head-compact">
+          <div>
+            <p className="dashboard-section-kicker">Reporting Overview</p>
+            <h2>Unfiltered Historical Signals</h2>
+            <p>These reporting panels stay independent from the dashboard filters.</p>
+          </div>
+        </div>
+
+        <section className="dashboard-panel trend-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Cost Trend</h3>
+              <p>Full historical cost pattern from the reporting service. Filters do not affect this chart.</p>
+            </div>
+          </div>
+          <div className="chart-frame trend-frame">
+            <canvas ref={trendChartRef}></canvas>
+          </div>
         </section>
-      )}
+
+        <div className="dashboard-grid dashboard-grid-reporting">
+          <article className="dashboard-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Monthly Order Flow</h3>
+                <p>All recorded order volume by month from the reporting service.</p>
+              </div>
+            </div>
+            <div className="chart-frame compact-chart-frame">
+              <canvas ref={ordersChartRef}></canvas>
+            </div>
+          </article>
+
+          <article className="dashboard-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Reporting Summary</h3>
+                <p>Highlights from order and profitability analytics.</p>
+              </div>
+            </div>
+            <div className="summary-list">
+              <div className="summary-row">
+                <span>Top Seller</span>
+                <strong>
+                  {reports.mostSoldProduct ? `${reports.mostSoldProduct.name} (${reports.mostSoldProduct.sold})` : "N/A"}
+                </strong>
+              </div>
+              <div className="summary-row">
+                <span>Most Profitable Category</span>
+                <strong>{reports.mostProfitableCategory?.category || "N/A"}</strong>
+              </div>
+              <div className="summary-row">
+                <span>Product Added Window</span>
+                <strong>
+                  {dateFrom || "Start"} to {dateTo || "Today"}
+                </strong>
+              </div>
+              <div className="summary-row">
+                <span>Filtered Category Scope</span>
+                <strong>{selectedCategory === "all" ? "All Categories" : selectedCategory}</strong>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
   );
 }

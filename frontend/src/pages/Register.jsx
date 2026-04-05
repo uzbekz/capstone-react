@@ -40,47 +40,67 @@ function Register() {
 
   return (
     <div className="register-container">
-      <div className="box">
-        {isSubmitting ? (
-          <div className="auth-loading">
-            <img src={loadingGif} alt="Registering user" className="auth-loading-gif" />
-            <p>Creating account...</p>
-          </div>
-        ) : (
-          <>
-            <h2>Register</h2>
-            <form id="registerForm" onSubmit={handleSubmit}>
-              <input
-                type="email"
-                id="email"
-                placeholder="Email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-              />
+      <div className="register-layout">
+        <div className="box">
+          {isSubmitting ? (
+            <div className="auth-loading">
+              <img src={loadingGif} alt="Registering user" className="auth-loading-gif" />
+              <p>Creating account...</p>
+            </div>
+          ) : (
+            <>
+              <h2>Register</h2>
+              <form id="registerForm" onSubmit={handleSubmit}>
+                <input
+                  type="email"
+                  id="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
 
-              <input
-                type="password"
-                id="password"
-                placeholder="Password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-              />
+                <input
+                  type="password"
+                  id="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
 
-              <select id="role" value={role} onChange={e => setRole(e.target.value)}>
-                <option value="customer">Customer</option>
-                <option value="product_manager">Product Manager (Needs Approval)</option>
-              </select>
+                <select id="role" value={role} onChange={e => setRole(e.target.value)}>
+                  <option value="customer">Customer</option>
+                  <option value="product_manager">Product Manager (Needs Approval)</option>
+                </select>
 
-              <button type="submit">Register</button>
-            </form>
+                <button type="submit">Register</button>
+              </form>
 
-            <p>
-              Already have an account? <Link to="/">Login</Link>
-            </p>
-          </>
-        )}
+              <p>
+                Already have an account? <Link to="/">Login</Link>
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="register-guide-panel">
+          <h3>Authentication Guide</h3>
+          <ul>
+            <li>
+              <strong>1. Email Verification</strong>
+              <p>After registering, we'll send a verification link to your email. You must verify your email before proceeding.</p>
+            </li>
+            <li>
+              <strong>2. Account Approval</strong>
+              <p>Because this platform is invite-only/restricted, <b>all new accounts</b> (both Customers and Product Managers) require manual review. An existing administrator must approve your account.</p>
+            </li>
+            <li>
+              <strong>3. Login Access</strong>
+              <p>Once your email is verified and an admin has approved your request, your login will be fully activated!</p>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   );

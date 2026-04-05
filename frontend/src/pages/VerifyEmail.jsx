@@ -12,6 +12,7 @@ function VerifyEmail() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
     const tokenFromUrl = searchParams.get("token");
@@ -28,10 +29,10 @@ function VerifyEmail() {
     try {
       const data = await verifyEmail(token);
       setStatusMessage(data.message || "Email verified successfully.");
-      setTimeout(() => navigate("/"), 1200);
+      setIsVerified(true);
+      setTimeout(() => navigate("/"), 2000);
     } catch (err) {
       setStatusMessage(err.message || "Unable to verify email.");
-    } finally {
       setVerifyLoading(false);
     }
   }
@@ -52,6 +53,21 @@ function VerifyEmail() {
   }
 
   const isBusy = verifyLoading || resendLoading;
+
+  if (isVerified) {
+    return (
+      <div className="forgot-password-page">
+        <div className="forgot-password-card">
+          <div className="auth-success-state" style={{ textAlign: "center", padding: "2rem 0" }}>
+            <div style={{ color: "var(--accent)", fontSize: "48px", marginBottom: "1rem" }}>✓</div>
+            <h2>Verified!</h2>
+            <p style={{ color: "var(--muted)", margin: "1rem 0" }}>{statusMessage}</p>
+            <p style={{ fontSize: "14px", fontWeight: "600" }}>Redirecting to login...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="forgot-password-page">

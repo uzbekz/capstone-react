@@ -20,6 +20,8 @@ function CustomerProducts({ products, setProducts, categories }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
+  /** Per-product quantity to add when pressing + (string for controlled input while typing) */
+  const [qtyToAddDraft, setQtyToAddDraft] = useState({});
 
   useEffect(() => {
     async function loadProducts() {
@@ -97,6 +99,23 @@ function CustomerProducts({ products, setProducts, categories }) {
 
     return filtered;
   }, [processedProducts, search, category, sort]);
+
+  function getQtyToAddValue(productId) {
+    return qtyToAddDraft[productId] ?? "1";
+  }
+
+  function setQtyToAddValue(productId, value) {
+    setQtyToAddDraft((prev) => ({ ...prev, [productId]: value }));
+  }
+
+  function parseQtyToAdd(product, cartQty) {
+    const maxAdd = Math.max(0, product.quantity - cartQty);
+    if (maxAdd <= 0) return 0;
+    const raw = getQtyToAddValue(product.id);
+    const parsed = parseInt(String(raw).replace(/\D/g, "") || "0", 10);
+    if (!Number.isFinite(parsed) || parsed < 1) return 1;
+    return Math.min(parsed, maxAdd);
+  }
 
   async function addToCart(product, qty) {
     const currentEntry = cartByProductRef.current[product.id];
@@ -297,12 +316,60 @@ function CustomerProducts({ products, setProducts, categories }) {
                       >
                         -
                       </button>
-                      <span>{cartQty}</span>
+                      <span className="qty-stepper-in-cart" title="In your cart">
+                        {cartQty}
+                      </span>
+                      <label className="qty-add-label">
+                        <span className="qty-add-label-text">Add</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          className="qty-add-input"
+                          value={getQtyToAddValue(product.id)}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "") {
+                              setQtyToAddValue(product.id, "");
+                              return;
+                            }
+                            if (/^\d+$/.test(v)) {
+                              const maxAdd = Math.max(0, product.quantity - cartQty);
+                              const n = parseInt(v, 10);
+                              if (maxAdd <= 0) return;
+                              setQtyToAddValue(
+                                product.id,
+                                String(Math.min(n, maxAdd)),
+                              );
+                            }
+                          }}
+                          onBlur={() => {
+                            const maxAdd = Math.max(0, product.quantity - cartQty);
+                            if (maxAdd <= 0) return;
+                            const v = getQtyToAddValue(product.id);
+                            if (v === "" || !/^\d+$/.test(v)) {
+                              setQtyToAddValue(product.id, "1");
+                              return;
+                            }
+                            const n = parseInt(v, 10);
+                            setQtyToAddValue(
+                              product.id,
+                              String(Math.min(Math.max(1, n), maxAdd)),
+                            );
+                          }}
+                          disabled={cartQty >= product.quantity}
+                          aria-label={`Quantity of ${product.name} to add to cart`}
+                        />
+                      </label>
                       <button
                         type="button"
-                        onClick={() => addToCart(product, 1)}
+                        onClick={() => {
+                          const n = parseQtyToAdd(product, cartQty);
+                          if (n <= 0) return;
+                          addToCart(product, n);
+                        }}
                         disabled={cartQty >= product.quantity}
-                        aria-label={`Increase ${product.name}`}
+                        aria-label={`Add ${product.name} to cart`}
                       >
                         +
                       </button>

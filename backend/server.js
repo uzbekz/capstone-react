@@ -608,6 +608,39 @@ app.patch(
   }
 );
 
+app.patch(
+  "/orders/bulk-cancel",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const pendingOrders = await Order.findAll({
+        where: { status: "pending" },
+        order: [["created_at", "ASC"]]
+      });
+
+      const cancelled = [];
+
+      for (const orderRow of pendingOrders) {
+        const order = await Order.findByPk(orderRow.id);
+        if (!order || order.status !== "pending") continue;
+        await order.update({ status: "cancelled" });
+        cancelled.push({ id: order.id });
+      }
+
+      res.json({
+        message:
+          cancelled.length === 0
+            ? "No pending orders to cancel."
+            : `Cancelled ${cancelled.length} pending order(s).`,
+        cancelled
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
 // ----- cart endpoints -----
 // get current user cart items
 app.get(

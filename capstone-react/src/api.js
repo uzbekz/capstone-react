@@ -228,6 +228,12 @@ export async function bulkDispatchOrdersRequest() {
   });
 }
 
+export async function bulkCancelOrdersRequest() {
+  return request("/orders/bulk-cancel", {
+    method: "PATCH"
+  });
+}
+
 export async function getDashboardReports() {
   return request("/reports/overview");
 }

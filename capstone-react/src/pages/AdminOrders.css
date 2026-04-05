@@ -21,7 +21,7 @@
 }
 
 .orders-filter-bar {
-  max-width: 920px;
+  max-width: 1040px;
   margin: 0 auto 20px auto;
   padding: 14px 16px;
   display: flex;
@@ -82,6 +82,34 @@
 }
 
 .btn-bulk-dispatch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-bulk-cancel {
+  border: 1px solid rgba(220, 38, 38, 0.45);
+  border-radius: 8px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+  color: var(--danger);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
+}
+
+.btn-bulk-cancel:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
+  border-color: var(--danger);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.2);
+}
+
+.btn-bulk-cancel:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   box-shadow: none;

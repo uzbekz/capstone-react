@@ -182,73 +182,42 @@ function MainPage({ setProductId, categories, products, setProducts }) {
   return (
     <>
       <div className="search-bar-container">
-        <input
-          className="search-bar"
-          placeholder="Search products..."
-          onChange={(e) => setSearch(e.target.value.toLowerCase())}
-        />
-
-        <select onChange={(e) => setCategory(e.target.value)}>
-          <option value="all">All Categories</option>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-
-        <select onChange={(e) => setSort(e.target.value)}>
-          <option value="default">Sort By</option>
-          <option value="price-low-to-high">Price low-high</option>
-          <option value="price-high-to-low">Price high-low</option>
-          <option value="quantity-low-to-high">Qty low-high</option>
-          <option value="quantity-high-to-low">Qty high-low</option>
-        </select>
-      </div>
-
-      <div className="bulk-operations-bar">
-        <div className="bulk-operations-copy">
-          <h3>Bulk Operations</h3>
-          <p>Apply quick stock actions to the products currently visible in the grid.</p>
-        </div>
-
-        <div className="bulk-operations-controls">
+        <div className="search-bar-row">
           <input
-            type="number"
-            min="1"
-            step="1"
-            value={bulkQuantity}
-            onChange={(event) => setBulkQuantity(event.target.value)}
-            placeholder={`Qty (default ${settings.default_restock_increment})`}
+            className="search-bar"
+            placeholder="Search products..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value.toLowerCase())}
           />
-          <button
-            type="button"
-            onClick={() =>
-              applyBulkRestock(
-                filteredProducts,
-                bulkQuantity || settings.default_restock_increment,
-                "Visible products restocked successfully.",
-              )
-            }
+
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            aria-label="Filter by category"
           >
-            Restock Visible
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() =>
-              applyBulkRestock(
-                lowStockFilteredProducts,
-                bulkQuantity || settings.default_restock_increment,
-                "Low-stock products restocked successfully.",
-              )
-            }
+            <option value="all">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            aria-label="Sort products"
           >
-            Restock Low Stock
-          </button>
+            <option value="default">Sort By</option>
+            <option value="price-low-to-high">Price low-high</option>
+            <option value="price-high-to-low">Price high-low</option>
+            <option value="quantity-low-to-high">Qty low-high</option>
+            <option value="quantity-high-to-low">Qty high-low</option>
+          </select>
+
           <button
             type="button"
-            className="ghost"
+            className="btn-reset-filters"
             onClick={() => {
               setSearch("");
               setCategory("all");
@@ -256,8 +225,47 @@ function MainPage({ setProductId, categories, products, setProducts }) {
               setBulkQuantity("");
             }}
           >
-            Reset Filters
+            Reset filters
           </button>
+        </div>
+
+        <div className="search-bar-bulk">
+          <div className="bulk-operations-controls">
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={bulkQuantity}
+              onChange={(event) => setBulkQuantity(event.target.value)}
+              placeholder={`Qty (default ${settings.default_restock_increment})`}
+              aria-label="Bulk restock quantity"
+            />
+            <button
+              type="button"
+              onClick={() =>
+                applyBulkRestock(
+                  filteredProducts,
+                  bulkQuantity || settings.default_restock_increment,
+                  "All products in the current view were restocked.",
+                )
+              }
+            >
+              Restock all
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                applyBulkRestock(
+                  lowStockFilteredProducts,
+                  bulkQuantity || settings.default_restock_increment,
+                  "Low-stock products restocked successfully.",
+                )
+              }
+            >
+              Restock Low Stock
+            </button>
+          </div>
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
 import {
+  bulkCancelOrdersRequest,
   bulkDispatchOrdersRequest,
   dispatchOrderRequest,
   getAllOrders,
@@ -136,6 +137,33 @@ function AdminOrders() {
     }
   }
 
+  async function bulkCancel() {
+    if (pendingCount === 0) {
+      showSnackbar("No pending orders to cancel.", "error");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Cancel all ${pendingCount} pending order(s)? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    try {
+      setLoading(true);
+      const data = await bulkCancelOrdersRequest();
+      const n = data.cancelled?.length ?? 0;
+      showSnackbar(
+        data.message || (n === 0 ? "No orders were cancelled." : `Cancelled ${n} order(s).`),
+        n === 0 ? "warning" : "success"
+      );
+      await loadOrders();
+    } catch (err) {
+      showSnackbar(err.message || "Bulk cancel failed", "error");
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="admin-orders">
       <h1>Manage Orders</h1>
@@ -183,6 +211,20 @@ function AdminOrders() {
           }
         >
           Bulk dispatch
+        </button>
+
+        <button
+          type="button"
+          className="btn-bulk-cancel"
+          onClick={bulkCancel}
+          disabled={pendingCount === 0}
+          title={
+            pendingCount === 0
+              ? "No pending orders"
+              : `Cancel all ${pendingCount} pending order(s)`
+          }
+        >
+          Bulk cancel
         </button>
       </div>
 

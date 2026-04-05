@@ -52,3 +52,8 @@ export function orderCancelledBody(orderId) {
   const text = `Order #${orderId} has been cancelled.\nIf you did not request this, please contact support.`;
   return { subject: `Order #${orderId} cancelled`, text };
 }
+
+export function orderDeliveredBody(orderId) {
+  const text = `Order #${orderId} has been successfully delivered!\nThank you for shopping with us!`;
+  return { subject: `Order #${orderId} delivered!`, text };
+}

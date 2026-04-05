@@ -24,7 +24,8 @@ import {
   sendOrderEmail,
   orderPlacedBody,
   orderDispatchedBody,
-  orderCancelledBody
+  orderCancelledBody,
+  orderDeliveredBody
 } from "./lib/orderMail.js";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -712,6 +713,12 @@ app.patch(
           if (o && o.status === "dispatched") {
             await o.update({ status: "delivered", delivered_at: new Date() });
             console.log(`Order ${o.id} automatically marked delivered at ${new Date().toISOString()}`);
+            
+            const custD = await User.findByPk(o.customer_id);
+            if (custD?.email) {
+              const { subject, text } = orderDeliveredBody(o.id);
+              sendOrderEmail(custD.email, subject, text).catch(() => null);
+            }
           }
         } catch (err) {
           console.error('auto-deliver error for order', order.id, err);
@@ -841,6 +848,12 @@ app.patch(
               console.log(
                 `Order ${o.id} automatically marked delivered at ${new Date().toISOString()}`
               );
+              
+              const custD = await User.findByPk(o.customer_id);
+              if (custD?.email) {
+                const { subject, text } = orderDeliveredBody(o.id);
+                sendOrderEmail(custD.email, subject, text).catch(() => null);
+              }
             }
           } catch (err) {
             console.error("auto-deliver error for order", orderId, err);

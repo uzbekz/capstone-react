@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start:prod": "pm2 start server.js --name 'backend-api'",
+    "stop:prod": "pm2 stop 'backend-api'",
+    "restart:prod": "pm2 restart 'backend-api'",
+    "logs:prod": "pm2 logs 'backend-api'"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +26,7 @@
     "multer": "^2.0.2",
     "mysql2": "^3.16.0",
     "nodemailer": "^8.0.1",
+    "pm2": "^6.0.14",
     "sequelize": "^6.37.7"
   },
   "devDependencies": {

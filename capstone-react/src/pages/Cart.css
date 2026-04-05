@@ -219,6 +219,24 @@ h3 {
   color: #111827;
 }
 
+.cart-coupon-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.cart-coupon-input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
 .summary-total {
   display: flex;
   justify-content: space-between;

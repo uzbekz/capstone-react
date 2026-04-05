@@ -136,6 +136,20 @@
   font-weight: 600;
 }
 
+.timeline-date {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.timeline-cancelled {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .timeline-connector {
   position: absolute;
   top: 6px;
@@ -161,6 +175,21 @@
 
 .timeline-connector.active {
   background: #2563eb;
+}
+
+.shipping-banner {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.shipping-lines {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #0f172a;
+  line-height: 1.4;
 }
 
 .order-info-grid {

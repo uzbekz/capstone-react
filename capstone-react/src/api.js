@@ -200,11 +200,22 @@ export async function clearCartRequest() {
   });
 }
 
-export async function createOrder(items) {
+export async function createOrder(items, options = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (options.idempotencyKey) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
+  }
   return request("/orders", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items })
+    headers,
+    body: JSON.stringify({
+      items,
+      coupon_code: options.coupon_code || undefined,
+      ship_line1: options.ship_line1,
+      ship_city: options.ship_city,
+      ship_postal: options.ship_postal,
+      ship_country: options.ship_country
+    })
   });
 }
 
@@ -238,8 +249,54 @@ export async function getDashboardReports() {
   return request("/reports/overview");
 }
 
+export async function getAuditLog(limit = 50) {
+  return request(`/reports/audit-log?limit=${limit}`);
+}
+
+export async function downloadAdminCsv(path, filename) {
+  const res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
+  if (!res.ok) {
+    const err = new Error(`Export failed (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function getProfile() {
   return request("/users/me");
+}
+
+export async function updateProfileAddress(payload) {
+  return request("/users/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function getWishlist() {
+  return request("/wishlist");
+}
+
+export async function addWishlistItem(productId) {
+  return request("/wishlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: productId })
+  });
+}
+
+export async function removeWishlistItem(productId) {
+  return request(`/wishlist/${productId}`, {
+    method: "DELETE"
+  });
 }
 
 export async function getUsers() {
@@ -276,9 +333,15 @@ export async function getOrderDetails(orderId) {
   return request(`/orders/${orderId}`);
 }
 
-export async function cancelOrderRequest(orderId) {
+export async function cancelOrderRequest(orderId, internalNote) {
   return request(`/orders/${orderId}/cancel`, {
-    method: "PATCH"
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(
+      internalNote != null && internalNote !== ""
+        ? { internal_note: internalNote }
+        : {}
+    )
   });
 }
 

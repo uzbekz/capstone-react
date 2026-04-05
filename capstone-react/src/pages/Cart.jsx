@@ -17,6 +17,7 @@ function Cart() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
   const { showSnackbar } = useSnackbar();
 
   const fetchCart = useCallback(async () => {
@@ -128,7 +129,14 @@ function Cart() {
 
     try {
       setCheckoutLoading(true);
-      await createOrder(items);
+      const idempotencyKey =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `ord-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      await createOrder(items, {
+        coupon_code: couponCode.trim() || undefined,
+        idempotencyKey
+      });
       showSnackbar("Order placed successfully.", "success");
       await clearCartRequest();
       setCart([]);
@@ -235,6 +243,18 @@ function Cart() {
                 <span>Total</span>
                 <span className="summary-value">Rs {totalPrice.toFixed(2)}</span>
               </div>
+
+              <label className="cart-coupon-label">
+                Coupon code
+                <input
+                  type="text"
+                  className="cart-coupon-input"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. WELCOME10"
+                  autoComplete="off"
+                />
+              </label>
 
               <button className="btn-checkout" onClick={checkout}>
                 Checkout

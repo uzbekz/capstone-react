@@ -14,8 +14,18 @@ import Order from "./models/Order.js";
 import OrderItem from "./models/OrderItem.js";
 import Cart from "./models/Cart.js";
 import AppSetting from "./models/AppSetting.js";
-import { Op } from "sequelize";
+import AuditLog from "./models/AuditLog.js";
+import WishlistItem from "./models/WishlistItem.js";
+import Coupon from "./models/Coupon.js";
+import { Op, Transaction } from "sequelize";
 import { hashToken } from './middleware/auth.js';
+import { writeAudit } from "./lib/auditLog.js";
+import {
+  sendOrderEmail,
+  orderPlacedBody,
+  orderDispatchedBody,
+  orderCancelledBody
+} from "./lib/orderMail.js";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_APP_SETTINGS = {
@@ -121,8 +131,82 @@ UserSession.belongsTo(User, { foreignKey: "user_id" });
 Product.hasMany(Cart, { foreignKey: "product_id" });
 Cart.belongsTo(Product, { foreignKey: "product_id" });
 
+User.hasMany(WishlistItem, { foreignKey: "user_id" });
+WishlistItem.belongsTo(User, { foreignKey: "user_id" });
+Product.hasMany(WishlistItem, { foreignKey: "product_id" });
+WishlistItem.belongsTo(Product, { foreignKey: "product_id" });
+User.hasMany(AuditLog, { foreignKey: "user_id" });
+AuditLog.belongsTo(User, { foreignKey: "user_id" });
 
 const app = express();
+
+function availableToSell(product) {
+  const q = Number(product.quantity);
+  const r = Number(product.reserved_quantity || 0);
+  return Math.max(0, q - r);
+}
+
+function enrichProductJson(product) {
+  const p = product.toJSON ? product.toJSON() : { ...product };
+  const qty = Number(p.quantity);
+  const reserved = Number(p.reserved_quantity || 0);
+  return {
+    ...p,
+    available_quantity: Math.max(0, qty - reserved)
+  };
+}
+
+async function releaseReservationForOrder(orderId, transaction) {
+  const items = await OrderItem.findAll({
+    where: { order_id: orderId },
+    transaction
+  });
+  for (const item of items) {
+    const product = await Product.findByPk(item.product_id, {
+      transaction,
+      lock: Transaction.LOCK.UPDATE
+    });
+    if (!product) continue;
+    const next = Math.max(0, Number(product.reserved_quantity || 0) - item.quantity);
+    await product.update({ reserved_quantity: next }, { transaction });
+  }
+}
+
+async function reserveStockForLines(lines, transaction) {
+  for (const line of lines) {
+    const product = await Product.findByPk(line.product_id, {
+      transaction,
+      lock: Transaction.LOCK.UPDATE
+    });
+    if (!product) {
+      throw new Error("PRODUCT_NOT_FOUND");
+    }
+    const avail = availableToSell(product);
+    if (avail < line.quantity) {
+      throw new Error(`INSUFFICIENT_STOCK:${product.name}`);
+    }
+    await product.update(
+      {
+        reserved_quantity: Number(product.reserved_quantity || 0) + line.quantity
+      },
+      { transaction }
+    );
+  }
+}
+
+const cartMutationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.CART_RATE_LIMIT || 120),
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const orderPlacementLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.ORDER_RATE_LIMIT || 25),
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 app.disable("x-powered-by");
 app.use(helmet({
@@ -165,8 +249,15 @@ sequelize.authenticate()
   .then(() => console.log('Database connected'))
   .catch(err => console.error('DB error:', err));
 
-  //creats the users table if not exits and connects to the table
-sequelize.sync({ alter: true })
+  // `alter: true` on every boot can create duplicate MySQL indexes until ER_TOO_MANY_KEYS (max 64/table).
+  // Default: create missing tables only. Enable one-off migrations with SQL_SYNC_ALTER=true in .env.
+  const syncOptions =
+    process.env.SQL_SYNC_ALTER === "true" ? { alter: true } : {};
+  if (!syncOptions.alter) {
+    console.log("Sequelize sync: alter disabled (set SQL_SYNC_ALTER=true temporarily to migrate schema).");
+  }
+
+sequelize.sync(syncOptions)
   .then(async () => {
     const existingSettings = await AppSetting.findAll({ attributes: ["key"] });
     const existingKeys = new Set(existingSettings.map((setting) => setting.key));
@@ -176,6 +267,30 @@ sequelize.sync({ alter: true })
         .filter(([key]) => !existingKeys.has(key))
         .map(([key, value]) => AppSetting.create({ key, value: String(value) }))
     );
+
+    const existingCoupon = await Coupon.findOne({ where: { code: "WELCOME10" } });
+    if (!existingCoupon) {
+      await Coupon.create({
+        code: "WELCOME10",
+        discount_percent: 10,
+        active: true,
+        max_uses: null
+      });
+      console.log("Seeded default coupon WELCOME10");
+    }
+
+    const pendingList = await Order.findAll({ where: { status: "pending" } });
+    const reservedByProduct = new Map();
+    for (const o of pendingList) {
+      const oItems = await OrderItem.findAll({ where: { order_id: o.id } });
+      for (const it of oItems) {
+        reservedByProduct.set(it.product_id, (reservedByProduct.get(it.product_id) || 0) + it.quantity);
+      }
+    }
+    await Product.update({ reserved_quantity: 0 }, { where: {} });
+    for (const [pid, qty] of reservedByProduct) {
+      await Product.update({ reserved_quantity: qty }, { where: { id: pid } });
+    }
 
     console.log("All models synced (tables created)");
   })
@@ -221,7 +336,7 @@ app.get("/products", async (req, res) => {
       order
     });
 
-    res.json(products);
+    res.json(products.map((p) => enrichProductJson(p)));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -230,7 +345,7 @@ app.get("/products", async (req, res) => {
 app.get('/products/:id', async (req, res) => {
   const product = await Product.findByPk(req.params.id);
   if (!product) return res.status(404).json({ message: "Not found" });
-  res.json(product);
+  res.json(enrichProductJson(product));
 });
 
 // Protected routes
@@ -281,7 +396,15 @@ app.put(
 
     if (req.file) updateData.image = req.file.buffer;
 
+    const prev = await Product.findByPk(req.params.id);
     await Product.update(updateData, { where: { id: req.params.id } });
+    if (prev && updateData.quantity != null && Number(updateData.quantity) !== Number(prev.quantity)) {
+      await writeAudit(req.user.id, "product_restock", {
+        product_id: prev.id,
+        from: prev.quantity,
+        to: updateData.quantity
+      });
+    }
     res.json({ message: "Product updated" });
   }
 );
@@ -298,51 +421,144 @@ app.delete(
 
 app.post(
   "/orders",
+  orderPlacementLimiter,
   authenticate,
   authorize("customer"),
   async (req, res) => {
     try {
-      const { items } = req.body;
+      const { items, coupon_code, ship_line1, ship_city, ship_postal, ship_country } =
+        req.body || {};
       const customerId = req.user.id;
+      const idemKey = (req.get("Idempotency-Key") || "").trim();
 
-      let total = 0;
-
-      // Validate stock
-      for (const item of items) {
-        const product = await Product.findByPk(item.product_id);
-
-        if (!product || product.quantity < item.quantity) {
-          return res.status(400).json({
-            message: `Not enough stock for ${product?.name}`
-          });
-        }
-
-        total += product.price * item.quantity;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Cart items required" });
       }
 
-      // Create order
-      const order = await Order.create({
-        customer_id: customerId,
-        total_price: total
-      });
+      if (idemKey) {
+        const existing = await Order.findOne({
+          where: { customer_id: customerId, idempotency_key: idemKey }
+        });
+        if (existing) {
+          return res.status(200).json({
+            message: "Order already placed",
+            orderId: existing.id,
+            idempotent: true
+          });
+        }
+      }
 
-      // Create order items
+      const user = await User.findByPk(customerId);
+      const ship1 = ship_line1 ?? user?.address_line1 ?? null;
+      const shipCi = ship_city ?? user?.city ?? null;
+      const shipPo = ship_postal ?? user?.postal_code ?? null;
+      const shipCo = ship_country ?? user?.country ?? null;
+
+      let subtotal = 0;
+      const lines = [];
+
       for (const item of items) {
         const product = await Product.findByPk(item.product_id);
-
-        await OrderItem.create({
-          order_id: order.id,
+        if (!product || availableToSell(product) < item.quantity) {
+          return res.status(400).json({
+            message: `Not enough stock for ${product?.name || "product"}`
+          });
+        }
+        subtotal += Number(product.price) * item.quantity;
+        lines.push({
           product_id: product.id,
           quantity: item.quantity,
           price: product.price
         });
       }
 
+      let discountAmount = 0;
+      let appliedCouponCode = null;
+      let couponToRedeem = null;
+      const rawCoupon = typeof coupon_code === "string" ? coupon_code.trim().toUpperCase() : "";
+      if (rawCoupon) {
+        const coupon = await Coupon.findOne({ where: { code: rawCoupon, active: true } });
+        if (
+          coupon &&
+          (!coupon.expires_at || new Date(coupon.expires_at) > new Date()) &&
+          (coupon.max_uses == null || coupon.uses_count < coupon.max_uses)
+        ) {
+          discountAmount = Math.min(
+            subtotal,
+            (subtotal * Number(coupon.discount_percent)) / 100
+          );
+          appliedCouponCode = coupon.code;
+          couponToRedeem = coupon;
+        }
+      }
+
+      const total = Math.max(0, subtotal - discountAmount);
+
+      let createdOrder = null;
+      const t = await sequelize.transaction();
+      try {
+        await reserveStockForLines(
+          lines.map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
+          t
+        );
+
+        createdOrder = await Order.create(
+          {
+            customer_id: customerId,
+            total_price: total,
+            idempotency_key: idemKey || null,
+            coupon_code: appliedCouponCode,
+            discount_amount: discountAmount,
+            ship_line1: ship1,
+            ship_city: shipCi,
+            ship_postal: shipPo,
+            ship_country: shipCo
+          },
+          { transaction: t }
+        );
+
+        for (const line of lines) {
+          await OrderItem.create(
+            {
+              order_id: createdOrder.id,
+              product_id: line.product_id,
+              quantity: line.quantity,
+              price: line.price
+            },
+            { transaction: t }
+          );
+        }
+
+        if (couponToRedeem) {
+          await couponToRedeem.update(
+            { uses_count: couponToRedeem.uses_count + 1 },
+            { transaction: t }
+          );
+        }
+
+        await t.commit();
+      } catch (inner) {
+        await t.rollback();
+        if (String(inner.message).startsWith("INSUFFICIENT_STOCK:")) {
+          return res.status(400).json({
+            message: `Not enough stock for ${inner.message.split(":")[1]}`
+          });
+        }
+        throw inner;
+      }
+
+      const finalId = createdOrder.id;
+
+      await writeAudit(customerId, "order_placed", { order_id: finalId, total });
+      if (user?.email) {
+        const { subject, text } = orderPlacedBody(finalId, total);
+        sendOrderEmail(user.email, subject, text).catch(() => null);
+      }
+
       res.status(201).json({
         message: "Order placed successfully",
-        orderId: order.id
+        orderId: finalId
       });
-
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -459,7 +675,7 @@ app.patch(
         where: { order_id: order.id }
       });
 
-      // Deduct stock
+      const now = new Date();
       for (const item of items) {
         const product = await Product.findByPk(item.product_id);
 
@@ -469,8 +685,10 @@ app.patch(
           });
         }
 
+        const nextReserved = Math.max(0, Number(product.reserved_quantity || 0) - item.quantity);
         await product.update({
-          quantity: product.quantity - item.quantity
+          quantity: product.quantity - item.quantity,
+          reserved_quantity: nextReserved
         });
       }
 
@@ -481,7 +699,11 @@ app.patch(
       const minutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
       const deliveredAt = new Date(Date.now() + minutes * 60 * 1000);
 
-      await order.update({ status: "dispatched", delivered_at: deliveredAt });
+      await order.update({
+        status: "dispatched",
+        delivered_at: deliveredAt,
+        dispatched_at: now
+      });
 
       // schedule background update to "delivered" after delay
       setTimeout(async () => {
@@ -495,6 +717,13 @@ app.patch(
           console.error('auto-deliver error for order', order.id, err);
         }
       }, minutes * 60 * 1000);
+
+      await writeAudit(req.user.id, "order_dispatched", { order_id: order.id });
+      const cust = await User.findByPk(order.customer_id);
+      if (cust?.email) {
+        const { subject, text } = orderDispatchedBody(order.id, minutes);
+        sendOrderEmail(cust.email, subject, text).catch(() => null);
+      }
 
       res.json({ message: "Order dispatched successfully", eta_minutes: minutes, delivered_at: deliveredAt });
 
@@ -561,15 +790,35 @@ app.patch(
         }
 
         if (!canDispatch) {
-          await order.update({ status: "cancelled" });
+          const relT = await sequelize.transaction();
+          try {
+            await releaseReservationForOrder(order.id, relT);
+            await order.update(
+              { status: "cancelled", internal_cancel_note: cancelReason },
+              { transaction: relT }
+            );
+            await relT.commit();
+          } catch (e) {
+            await relT.rollback();
+            throw e;
+          }
           cancelled.push({ id: order.id, reason: cancelReason });
+          const custX = await User.findByPk(order.customer_id);
+          if (custX?.email) {
+            const { subject, text } = orderCancelledBody(order.id);
+            sendOrderEmail(custX.email, subject, text).catch(() => null);
+          }
+          await writeAudit(req.user.id, "order_cancelled_bulk_stock", { order_id: order.id, reason: cancelReason });
           continue;
         }
 
+        const dispatchNow = new Date();
         for (const item of items) {
           const product = await Product.findByPk(item.product_id);
+          const nextReserved = Math.max(0, Number(product.reserved_quantity || 0) - item.quantity);
           await product.update({
-            quantity: product.quantity - item.quantity
+            quantity: product.quantity - item.quantity,
+            reserved_quantity: nextReserved
           });
         }
 
@@ -577,7 +826,11 @@ app.patch(
           Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
         const deliveredAt = new Date(Date.now() + minutes * 60 * 1000);
 
-        await order.update({ status: "dispatched", delivered_at: deliveredAt });
+        await order.update({
+          status: "dispatched",
+          delivered_at: deliveredAt,
+          dispatched_at: dispatchNow
+        });
 
         const orderId = order.id;
         setTimeout(async () => {
@@ -593,6 +846,13 @@ app.patch(
             console.error("auto-deliver error for order", orderId, err);
           }
         }, minutes * 60 * 1000);
+
+        await writeAudit(req.user.id, "order_dispatched", { order_id: order.id, bulk: true });
+        const custD = await User.findByPk(order.customer_id);
+        if (custD?.email) {
+          const { subject, text } = orderDispatchedBody(order.id, minutes);
+          sendOrderEmail(custD.email, subject, text).catch(() => null);
+        }
 
         dispatched.push({ id: order.id, eta_minutes: minutes });
       }
@@ -624,8 +884,25 @@ app.patch(
       for (const orderRow of pendingOrders) {
         const order = await Order.findByPk(orderRow.id);
         if (!order || order.status !== "pending") continue;
-        await order.update({ status: "cancelled" });
+        const t = await sequelize.transaction();
+        try {
+          await releaseReservationForOrder(order.id, t);
+          await order.update(
+            { status: "cancelled", internal_cancel_note: "Bulk cancel (admin)" },
+            { transaction: t }
+          );
+          await t.commit();
+        } catch (e) {
+          await t.rollback();
+          throw e;
+        }
         cancelled.push({ id: order.id });
+        const custB = await User.findByPk(order.customer_id);
+        if (custB?.email) {
+          const { subject, text } = orderCancelledBody(order.id);
+          sendOrderEmail(custB.email, subject, text).catch(() => null);
+        }
+        await writeAudit(req.user.id, "order_cancelled", { order_id: order.id, bulk: true });
       }
 
       res.json({
@@ -635,6 +912,63 @@ app.patch(
             : `Cancelled ${cancelled.length} pending order(s).`,
         cancelled
       });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ----- wishlist -----
+app.get(
+  "/wishlist",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      const rows = await WishlistItem.findAll({
+        where: { user_id: req.user.id },
+        include: [{ model: Product }]
+      });
+      const products = rows
+        .map((w) => w.Product)
+        .filter(Boolean)
+        .map((p) => enrichProductJson(p));
+      res.json(products);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.post(
+  "/wishlist",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      const { product_id } = req.body;
+      const product = await Product.findByPk(product_id);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      await WishlistItem.findOrCreate({
+        where: { user_id: req.user.id, product_id }
+      });
+      res.status(201).json({ message: "Added to wishlist" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.delete(
+  "/wishlist/:productId",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      await WishlistItem.destroy({
+        where: { user_id: req.user.id, product_id: req.params.productId }
+      });
+      res.json({ message: "Removed" });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -673,6 +1007,7 @@ app.get(
 // add or increment item
 app.post(
   "/cart",
+  cartMutationLimiter,
   authenticate,
   authorize("customer"),
   async (req, res) => {
@@ -683,6 +1018,7 @@ app.post(
       const product = await Product.findByPk(product_id);
       if (!product) return res.status(404).json({ message: "Product not found" });
       if (quantity <= 0) return res.status(400).json({ message: "Invalid quantity" });
+      const sellable = availableToSell(product);
       // upsert
       let cartItem = await Cart.findOne({ where: { user_id: userId, product_id } });
       if (cartItem) {
@@ -691,12 +1027,22 @@ app.post(
             message: `You can add up to ${maxCartQuantity} units of a product to your cart`
           });
         }
+        if (cartItem.quantity + quantity > sellable) {
+          return res.status(400).json({
+            message: `Only ${sellable} units available for ${product.name}`
+          });
+        }
         cartItem.quantity += quantity;
         await cartItem.save();
       } else {
         if (quantity > maxCartQuantity) {
           return res.status(400).json({
             message: `You can add up to ${maxCartQuantity} units of a product to your cart`
+          });
+        }
+        if (quantity > sellable) {
+          return res.status(400).json({
+            message: `Only ${sellable} units available for ${product.name}`
           });
         }
         cartItem = await Cart.create({
@@ -715,6 +1061,7 @@ app.post(
 // update qty of a cart item
 app.put(
   "/cart/:id",
+  cartMutationLimiter,
   authenticate,
   authorize("customer"),
   async (req, res) => {
@@ -729,6 +1076,13 @@ app.put(
       if (quantity > maxCartQuantity) {
         return res.status(400).json({
           message: `You can add up to ${maxCartQuantity} units of a product to your cart`
+        });
+      }
+      const product = await Product.findByPk(cartItem.product_id);
+      const sellable = product ? availableToSell(product) : 0;
+      if (quantity > sellable) {
+        return res.status(400).json({
+          message: `Only ${sellable} units available for ${product?.name || "this product"}`
         });
       }
       cartItem.quantity = quantity;
@@ -781,9 +1135,63 @@ app.get(
   async (req, res) => {
     try {
       const user = await User.findByPk(req.user.id, {
-        attributes: ["id", "email", "role", "admin_status", "isValid", "email_verified", "created_at"]
+        attributes: [
+          "id",
+          "email",
+          "role",
+          "admin_status",
+          "isValid",
+          "email_verified",
+          "created_at",
+          "address_line1",
+          "address_line2",
+          "city",
+          "postal_code",
+          "country"
+        ]
       });
       res.json(user);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.patch(
+  "/users/me",
+  authenticate,
+  async (req, res) => {
+    try {
+      const {
+        address_line1,
+        address_line2,
+        city,
+        postal_code,
+        country
+      } = req.body || {};
+      const user = await User.findByPk(req.user.id);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      await user.update({
+        ...(address_line1 !== undefined ? { address_line1: String(address_line1).slice(0, 200) } : {}),
+        ...(address_line2 !== undefined ? { address_line2: String(address_line2).slice(0, 200) } : {}),
+        ...(city !== undefined ? { city: String(city).slice(0, 100) } : {}),
+        ...(postal_code !== undefined ? { postal_code: String(postal_code).slice(0, 30) } : {}),
+        ...(country !== undefined ? { country: String(country).slice(0, 80) } : {})
+      });
+      const fresh = await User.findByPk(req.user.id, {
+        attributes: [
+          "id",
+          "email",
+          "role",
+          "created_at",
+          "address_line1",
+          "address_line2",
+          "city",
+          "postal_code",
+          "country"
+        ]
+      });
+      res.json(fresh);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -971,13 +1379,18 @@ app.get(
         return obj;
       });
 
-      res.json({
+      const payload = {
         ...serializeOrderWithReturnMeta({
           ...order.toJSON(),
           return_window_days: returnWindowDays
         }),
         items: itemsWithBase64
-      });
+      };
+      if (req.user.role === "customer") {
+        delete payload.internal_cancel_note;
+      }
+
+      res.json(payload);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -1060,8 +1473,33 @@ app.patch(
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      // allow both roles to cancel
-      await order.update({ status: "cancelled" });
+      const internalNote =
+        req.user.role === "product_manager" && typeof req.body?.internal_note === "string"
+          ? req.body.internal_note.slice(0, 2000)
+          : null;
+
+      const t = await sequelize.transaction();
+      try {
+        await releaseReservationForOrder(order.id, t);
+        await order.update(
+          {
+            status: "cancelled",
+            ...(internalNote ? { internal_cancel_note: internalNote } : {})
+          },
+          { transaction: t }
+        );
+        await t.commit();
+      } catch (e) {
+        await t.rollback();
+        throw e;
+      }
+
+      const cust = await User.findByPk(order.customer_id);
+      if (cust?.email) {
+        const { subject, text } = orderCancelledBody(order.id);
+        sendOrderEmail(cust.email, subject, text).catch(() => null);
+      }
+      await writeAudit(req.user.id, "order_cancelled", { order_id: order.id });
 
       res.json({ message: "Order cancelled successfully" });
 
@@ -1148,15 +1586,128 @@ app.get(
           }
         : null;
 
+      const pendingOrders = await Order.count({ where: { status: "pending" } });
+      const sevenDaysAgo = new Date(Date.now() - 7 * MS_PER_DAY);
+      const ordersLast7Days = await Order.count({
+        where: { created_at: { [Op.gte]: sevenDaysAgo } }
+      });
+      const thirtyDaysAgo = new Date(Date.now() - 30 * MS_PER_DAY);
+      const cancelledLast30Days = await Order.count({
+        where: { status: "cancelled", created_at: { [Op.gte]: thirtyDaysAgo } }
+      });
+      const ordersWithCoupon = await Order.count({
+        where: { coupon_code: { [Op.ne]: null } }
+      });
+
       res.json({
         revenueByMonth,
         monthlyOrders,
         mostSoldProduct,
-        mostProfitableCategory
+        mostProfitableCategory,
+        funnel: {
+          pendingOrders,
+          ordersLast7Days,
+          cancelledLast30Days,
+          ordersWithCoupon
+        }
       });
     } catch (err) {
       console.error("reports/overview error", err);
       res.status(500).json({ error: err.message, stack: err.stack });
+    }
+  }
+);
+
+app.get(
+  "/reports/audit-log",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+      const rows = await AuditLog.findAll({
+        order: [["created_at", "DESC"]],
+        limit,
+        include: [{ model: User, attributes: ["id", "email"] }]
+      });
+      res.json(
+        rows.map((r) => ({
+          id: r.id,
+          created_at: r.created_at,
+          action: r.action,
+          details: r.details,
+          user: r.User ? { id: r.User.id, email: r.User.email } : null
+        }))
+      );
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.get(
+  "/reports/export/orders",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const orders = await Order.findAll({ order: [["created_at", "DESC"]], limit: 5000 });
+      const lines = [
+        "id,customer_id,status,total_price,coupon_code,discount_amount,created_at"
+      ];
+      for (const o of orders) {
+        const row = o.toJSON();
+        lines.push(
+          [
+            row.id,
+            row.customer_id,
+            row.status,
+            row.total_price,
+            row.coupon_code || "",
+            row.discount_amount ?? 0,
+            row.created_at
+          ].join(",")
+        );
+      }
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", 'attachment; filename="orders.csv"');
+      res.send(lines.join("\n"));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.get(
+  "/reports/export/low-stock",
+  authenticate,
+  authorize("product_manager"),
+  async (req, res) => {
+    try {
+      const threshold = await getNumericSetting("low_stock_threshold");
+      const products = await Product.findAll({
+        where: { quantity: { [Op.lt]: threshold } },
+        order: [["quantity", "ASC"]]
+      });
+      const lines = ["id,name,category,quantity,reserved_quantity,price"];
+      for (const p of products) {
+        const row = p.toJSON();
+        lines.push(
+          [
+            row.id,
+            JSON.stringify(row.name || ""),
+            JSON.stringify(row.category || ""),
+            row.quantity,
+            row.reserved_quantity ?? 0,
+            row.price
+          ].join(",")
+        );
+      }
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", 'attachment; filename="low-stock.csv"');
+      res.send(lines.join("\n"));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   }
 );

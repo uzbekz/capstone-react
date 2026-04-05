@@ -29,3 +29,64 @@
   width: 64px;
   height: 64px;
 }
+
+.profile-section-title {
+  margin: 28px 0 6px;
+  font-size: 1.1rem;
+}
+
+.profile-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.profile-address-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-address-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.profile-address-form input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  font-size: 15px;
+}
+
+.profile-address-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.profile-save-btn {
+  margin-top: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .profile-address-row {
+    grid-template-columns: 1fr;
+  }
+}

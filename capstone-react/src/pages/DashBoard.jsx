@@ -1,6 +1,12 @@
 import "./DashBoard.css";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getAppSettings, getDashboardReports, getProducts } from "../api.js";
+import {
+  getAppSettings,
+  getDashboardReports,
+  getProducts,
+  getAuditLog,
+  downloadAdminCsv,
+} from "../api.js";
 import Chart from "chart.js/auto";
 import loadingGif from "../assets/loading.gif";
 
@@ -27,6 +33,8 @@ function Dashboard({ products }) {
   const [reports, setReports] = useState({});
   const [settings, setSettings] = useState({ low_stock_threshold: 10 });
   const [loading, setLoading] = useState(true);
+  const [auditEntries, setAuditEntries] = useState([]);
+  const [exportBusy, setExportBusy] = useState(false);
   const [dateFrom, setDateFrom] = useState(defaultDateRange.start);
   const [dateTo, setDateTo] = useState(defaultDateRange.end);
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -48,10 +56,13 @@ function Dashboard({ products }) {
         const reportsPromise = getDashboardReports();
         const settingsPromise = getAppSettings();
 
-        const [productData, reportData, settingsData] = await Promise.all([
+        const auditPromise = getAuditLog(20).catch(() => []);
+
+        const [productData, reportData, settingsData, auditData] = await Promise.all([
           productsPromise,
           reportsPromise,
           settingsPromise,
+          auditPromise,
         ]);
 
         if (cancelled) return;
@@ -61,6 +72,7 @@ function Dashboard({ products }) {
         setLocalProducts(normalizedProducts);
         setReports(reportData || {});
         setSettings({ low_stock_threshold: settingsData?.low_stock_threshold || 10 });
+        setAuditEntries(Array.isArray(auditData) ? auditData : []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -357,6 +369,81 @@ function Dashboard({ products }) {
           <span>Low Stock Alerts</span>
           <strong>{filteredMetrics.lowStockCount}</strong>
         </article>
+      </section>
+
+      {reports.funnel && (
+        <section className="dashboard-stats dashboard-funnel-row">
+          <article className="dashboard-stat-card">
+            <span>Pending orders</span>
+            <strong>{reports.funnel.pendingOrders ?? "—"}</strong>
+          </article>
+          <article className="dashboard-stat-card">
+            <span>Orders (7 days)</span>
+            <strong>{reports.funnel.ordersLast7Days ?? "—"}</strong>
+          </article>
+          <article className="dashboard-stat-card">
+            <span>Cancelled (30 days)</span>
+            <strong>{reports.funnel.cancelledLast30Days ?? "—"}</strong>
+          </article>
+          <article className="dashboard-stat-card">
+            <span>Orders with coupon</span>
+            <strong>{reports.funnel.ordersWithCoupon ?? "—"}</strong>
+          </article>
+        </section>
+      )}
+
+      <section className="dashboard-exports-audit">
+        <div className="dashboard-export-buttons">
+          <button
+            type="button"
+            className="dashboard-export-btn"
+            disabled={exportBusy}
+            onClick={async () => {
+              try {
+                setExportBusy(true);
+                await downloadAdminCsv("/reports/export/orders", "orders.csv");
+              } catch (e) {
+                console.error(e);
+              } finally {
+                setExportBusy(false);
+              }
+            }}
+          >
+            Export orders CSV
+          </button>
+          <button
+            type="button"
+            className="dashboard-export-btn secondary"
+            disabled={exportBusy}
+            onClick={async () => {
+              try {
+                setExportBusy(true);
+                await downloadAdminCsv("/reports/export/low-stock", "low-stock.csv");
+              } catch (e) {
+                console.error(e);
+              } finally {
+                setExportBusy(false);
+              }
+            }}
+          >
+            Export low-stock CSV
+          </button>
+        </div>
+        <div className="dashboard-audit-panel">
+          <h3>Recent audit log</h3>
+          <ul className="dashboard-audit-list">
+            {auditEntries.map((row) => (
+              <li key={row.id}>
+                <span className="audit-time">
+                  {row.created_at ? new Date(row.created_at).toLocaleString() : ""}
+                </span>
+                <span className="audit-action">{row.action}</span>
+                <span className="audit-user">{row.user?.email || "—"}</span>
+              </li>
+            ))}
+            {auditEntries.length === 0 && <li className="audit-empty">No entries yet.</li>}
+          </ul>
+        </div>
       </section>
 
       <section className="dashboard-filtered-section">

@@ -7,8 +7,12 @@ import {
   getCart,
   updateCartItem,
   removeCartItem,
+  getWishlist,
+  addWishlistItem,
+  removeWishlistItem,
 } from "../api";
 import loadingGif from "../assets/loading.gif";
+import { useSnackbar } from "../components/SnackbarProvider";
 
 function CustomerProducts({ products, setProducts, categories }) {
   const navigate = useNavigate();
@@ -22,6 +26,8 @@ function CustomerProducts({ products, setProducts, categories }) {
   const [sort, setSort] = useState("default");
   /** Per-product quantity to add when pressing + (string for controlled input while typing) */
   const [qtyToAddDraft, setQtyToAddDraft] = useState({});
+  const [wishIds, setWishIds] = useState(() => new Set());
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     async function loadProducts() {
@@ -57,6 +63,14 @@ function CustomerProducts({ products, setProducts, categories }) {
 
   useEffect(() => {
     loadCart();
+  }, []);
+
+  useEffect(() => {
+    getWishlist()
+      .then((list) => {
+        if (Array.isArray(list)) setWishIds(new Set(list.map((p) => p.id)));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -100,6 +114,31 @@ function CustomerProducts({ products, setProducts, categories }) {
     return filtered;
   }, [processedProducts, search, category, sort]);
 
+  function sellable(p) {
+    if (p.available_quantity != null) return Number(p.available_quantity);
+    return Math.max(0, Number(p.quantity) - Number(p.reserved_quantity || 0));
+  }
+
+  async function toggleWishlist(productId) {
+    try {
+      if (wishIds.has(productId)) {
+        await removeWishlistItem(productId);
+        setWishIds((prev) => {
+          const next = new Set(prev);
+          next.delete(productId);
+          return next;
+        });
+        showSnackbar("Removed from wishlist.", "success");
+      } else {
+        await addWishlistItem(productId);
+        setWishIds((prev) => new Set(prev).add(productId));
+        showSnackbar("Saved to wishlist.", "success");
+      }
+    } catch {
+      showSnackbar("Wishlist update failed.", "error");
+    }
+  }
+
   function getQtyToAddValue(productId) {
     return qtyToAddDraft[productId] ?? "1";
   }
@@ -109,7 +148,7 @@ function CustomerProducts({ products, setProducts, categories }) {
   }
 
   function parseQtyToAdd(product, cartQty) {
-    const maxAdd = Math.max(0, product.quantity - cartQty);
+    const maxAdd = Math.max(0, sellable(product) - cartQty);
     if (maxAdd <= 0) return 0;
     const raw = getQtyToAddValue(product.id);
     const parsed = parseInt(String(raw).replace(/\D/g, "") || "0", 10);
@@ -120,7 +159,7 @@ function CustomerProducts({ products, setProducts, categories }) {
   async function addToCart(product, qty) {
     const currentEntry = cartByProductRef.current[product.id];
     const currentQty = currentEntry?.quantity || 0;
-    const increment = Math.min(qty, Math.max(0, product.quantity - currentQty));
+    const increment = Math.min(qty, Math.max(0, sellable(product) - currentQty));
     if (increment <= 0) return;
 
     setCartByProduct((prev) => {
@@ -248,7 +287,7 @@ function CustomerProducts({ products, setProducts, categories }) {
 
   return (
     <>
-      <div className="toolbar">
+      <div className="toolbar customer-toolbar">
         <input
           className="search-bar"
           placeholder="Search products..."
@@ -285,9 +324,18 @@ function CustomerProducts({ products, setProducts, categories }) {
         {!loading &&
           filteredProducts.map((product) => {
             const cartQty = cartByProduct[product.id]?.quantity || 0;
+            const avail = sellable(product);
 
             return (
               <div key={product.id} className="product-card">
+                <button
+                  type="button"
+                  className={`wishlist-heart ${wishIds.has(product.id) ? "on" : ""}`}
+                  onClick={() => toggleWishlist(product.id)}
+                  aria-label={wishIds.has(product.id) ? "Remove from wishlist" : "Add to wishlist"}
+                >
+                  {wishIds.has(product.id) ? "♥" : "♡"}
+                </button>
                 {product.imageSrc ? (
                   <img src={product.imageSrc} alt={product.name} />
                 ) : (
@@ -304,7 +352,10 @@ function CustomerProducts({ products, setProducts, categories }) {
 
                   <div className="product-bottom-row">
                     <p className="stock">
-                      Stock: <strong>{product.quantity}</strong>
+                      Available: <strong>{avail}</strong>
+                      {Number(product.reserved_quantity) > 0 && (
+                        <span className="stock-reserved"> ({product.quantity} in warehouse)</span>
+                      )}
                     </p>
 
                     <div className="qty-stepper">
@@ -334,7 +385,7 @@ function CustomerProducts({ products, setProducts, categories }) {
                               return;
                             }
                             if (/^\d+$/.test(v)) {
-                              const maxAdd = Math.max(0, product.quantity - cartQty);
+                              const maxAdd = Math.max(0, avail - cartQty);
                               const n = parseInt(v, 10);
                               if (maxAdd <= 0) return;
                               setQtyToAddValue(
@@ -344,7 +395,7 @@ function CustomerProducts({ products, setProducts, categories }) {
                             }
                           }}
                           onBlur={() => {
-                            const maxAdd = Math.max(0, product.quantity - cartQty);
+                            const maxAdd = Math.max(0, avail - cartQty);
                             if (maxAdd <= 0) return;
                             const v = getQtyToAddValue(product.id);
                             if (v === "" || !/^\d+$/.test(v)) {
@@ -357,7 +408,7 @@ function CustomerProducts({ products, setProducts, categories }) {
                               String(Math.min(Math.max(1, n), maxAdd)),
                             );
                           }}
-                          disabled={cartQty >= product.quantity}
+                          disabled={cartQty >= avail}
                           aria-label={`Quantity of ${product.name} to add to cart`}
                         />
                       </label>
@@ -368,7 +419,7 @@ function CustomerProducts({ products, setProducts, categories }) {
                           if (n <= 0) return;
                           addToCart(product, n);
                         }}
-                        disabled={cartQty >= product.quantity}
+                        disabled={cartQty >= avail}
                         aria-label={`Add ${product.name} to cart`}
                       >
                         +

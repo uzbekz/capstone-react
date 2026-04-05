@@ -257,6 +257,12 @@
   font-weight: 700;
 }
 
+.reserved-hint {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
 .product-meta {
   display: flex;
   justify-content: space-between;

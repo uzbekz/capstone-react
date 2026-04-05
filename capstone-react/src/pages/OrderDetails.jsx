@@ -112,13 +112,46 @@ function OrderDetails() {
   }
 
   const renderTimeline = () => {
+    if (order.status === "cancelled") {
+      return (
+        <div className="timeline timeline-cancelled">
+          <div className="timeline-step active current">
+            <div className="timeline-dot" />
+            <span className="timeline-label">Placed</span>
+            <small className="timeline-date">
+              {new Date(order.createdAt || order.created_at).toLocaleString()}
+            </small>
+          </div>
+          <div className="timeline-connector active" />
+          <div className="timeline-step active current">
+            <div className="timeline-dot" />
+            <span className="timeline-label">Cancelled</span>
+          </div>
+        </div>
+      );
+    }
+
     const steps = [
-      { key: "pending", label: "Pending" },
-      { key: "dispatched", label: "Dispatched" },
-      { key: "delivered", label: "Delivered" },
-      { key: "returned", label: "Returned" },
+      {
+        key: "pending",
+        label: "Placed",
+        date: order.createdAt || order.created_at
+      },
+      {
+        key: "dispatched",
+        label: "Dispatched",
+        date: order.dispatched_at
+      },
+      {
+        key: "delivered",
+        label: "Delivered",
+        date: order.delivered_at
+      },
+      { key: "returned", label: "Returned", date: order.updatedAt || order.updated_at }
     ];
-    const currentIndex = steps.findIndex((step) => step.key === order.status);
+
+    const statusOrder = ["pending", "dispatched", "delivered", "returned"];
+    const currentIndex = statusOrder.indexOf(order.status);
 
     return (
       <div className="timeline">
@@ -126,6 +159,7 @@ function OrderDetails() {
           const isActive = currentIndex >= 0 && idx <= currentIndex;
           const isCurrent = idx === currentIndex;
           const isConnectorActive = currentIndex > idx;
+          const showDate = isActive && step.date;
 
           return (
             <div
@@ -134,6 +168,9 @@ function OrderDetails() {
             >
               <div className="timeline-dot" />
               <span className="timeline-label">{step.label}</span>
+              {showDate && (
+                <small className="timeline-date">{new Date(step.date).toLocaleString()}</small>
+              )}
               {idx < steps.length - 1 && (
                 <div className={`timeline-connector ${isConnectorActive ? "active" : ""}`} />
               )}
@@ -184,6 +221,12 @@ function OrderDetails() {
           <div className="order-total-card">
             <p className="meta-label">Total Amount</p>
             <p className="total">Rs {Number(order.total_price).toFixed(2)}</p>
+            {order.coupon_code && Number(order.discount_amount) > 0 && (
+              <p className="meta-text">
+                Coupon <strong>{order.coupon_code}</strong> saved Rs{" "}
+                {Number(order.discount_amount).toFixed(2)}
+              </p>
+            )}
             <p className="meta-text">
               Placed on {new Date(order.createdAt || order.created_at).toLocaleString()}
             </p>
@@ -191,6 +234,17 @@ function OrderDetails() {
         </div>
 
         {renderTimeline()}
+
+        {(order.ship_line1 || order.ship_city) && (
+          <div className="shipping-banner">
+            <p className="meta-label">Shipping address</p>
+            <p className="shipping-lines">
+              {[order.ship_line1, order.ship_city, order.ship_postal, order.ship_country]
+                .filter(Boolean)
+                .join(", ")}
+            </p>
+          </div>
+        )}
 
         <div className="order-info-grid">
           <div className="info-card">

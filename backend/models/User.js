@@ -71,7 +71,13 @@ const User = sequelize.define("User", {
   lock_until: {
     type: DataTypes.DATE,
     allowNull: true
-  }
+  },
+
+  address_line1: { type: DataTypes.STRING(200), allowNull: true },
+  address_line2: { type: DataTypes.STRING(200), allowNull: true },
+  city: { type: DataTypes.STRING(100), allowNull: true },
+  postal_code: { type: DataTypes.STRING(30), allowNull: true },
+  country: { type: DataTypes.STRING(80), allowNull: true }
 
 }, {
   tableName: "users",

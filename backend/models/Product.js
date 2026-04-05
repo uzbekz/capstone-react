@@ -32,6 +32,12 @@ const Product = sequelize.define('Product', {
     defaultValue: 0
   },
 
+  reserved_quantity: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0
+  },
+
   weight: {
     type: DataTypes.DECIMAL(8, 2)
   },

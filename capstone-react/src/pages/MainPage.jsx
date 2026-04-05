@@ -311,6 +311,12 @@ function MainPage({ setProductId, categories, products, setProducts }) {
                     <p className="product-price">Price: Rs {product.price}</p>
                     <p className={restockedProducts[product.id] ? "qty-restocked" : ""}>
                       Qty: {product.quantity}
+                      {Number(product.reserved_quantity) > 0 && (
+                        <span className="reserved-hint">
+                          {" "}
+                          ({product.reserved_quantity} reserved)
+                        </span>
+                      )}
                     </p>
                     <p>Weight: {product.weight}</p>
                   </div>

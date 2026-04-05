@@ -95,9 +95,11 @@ function AdminOrders() {
   }
 
   async function cancelOrder(id) {
+    const note = window.prompt("Optional internal note (admins only):", "");
+    if (note === null) return;
     try {
       setLoading(true);
-      const data = await cancelOrderRequest(id);
+      const data = await cancelOrderRequest(id, note.trim());
       showSnackbar(data.message || "Order cancelled successfully.", "success");
       await loadOrders();
     } catch (err) {
@@ -280,6 +282,16 @@ function AdminOrders() {
                       {new Date(order.createdAt || order.created_at).toLocaleString()}
                     </strong>
                   </p>
+                  {order.coupon_code && (
+                    <p>
+                      <span>Coupon:</span> <strong>{order.coupon_code}</strong>
+                    </p>
+                  )}
+                  {order.internal_cancel_note && (
+                    <p className="order-internal-note">
+                      <span>Internal note:</span> {order.internal_cancel_note}
+                    </p>
+                  )}
                 </div>
 
                 {order.status === "pending" && (

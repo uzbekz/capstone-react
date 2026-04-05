@@ -66,6 +66,7 @@ function AppHeader() {
       ]
     : [
         { to: "/customerProducts", label: "Shop" },
+        { to: "/wishlist", label: "Wishlist" },
         { to: "/cart", label: "Cart" },
         { to: "/customerOrders", label: "Orders" },
         { to: "/profile", label: "Profile" },

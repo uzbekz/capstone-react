@@ -1,5 +1,6 @@
 import "./CustomerOrders.css";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useSnackbar } from "../components/SnackbarProvider";
 import loadingGif from "../assets/loading.gif";
 import { cancelOrderRequest, returnOrderRequest, getCustomerOrders } from "../api";
@@ -96,7 +97,7 @@ function CustomerOrders() {
   }, [orders, dateFilter]);
 
   useEffect(() => {
-    loadOrders().catch(() => navigate("/"));
+    loadOrders().catch(() => navigate("/customerProducts"));
   }, [loadOrders, navigate]);
 
   useEffect(() => {

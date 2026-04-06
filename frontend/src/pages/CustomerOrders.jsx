@@ -1,19 +1,30 @@
 import "./CustomerOrders.css";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useSnackbar } from "../components/SnackbarProvider";
 import loadingGif from "../assets/loading.gif";
 import { cancelOrderRequest, returnOrderRequest, getCustomerOrders } from "../api";
-import { useSnackbar } from "../components/SnackbarProvider";
+
+// Helper function for Indian currency formatting
+function formatIndianPrice(price) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+}
 
 const DEFAULT_RETURN_WINDOW_DAYS = 7;
 
 function CustomerOrders() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
   const [returningId, setReturningId] = useState(null);
+  const [dateFilter, setDateFilter] = useState("");
   const { showSnackbar } = useSnackbar();
   const previousStatusesRef = useRef(new Map());
 
@@ -49,28 +60,40 @@ function CustomerOrders() {
               if (previousStatus === "dispatched" && order.status === "delivered") {
                 showSnackbar(`Order #${order.id} has been delivered.`, "success");
               }
+              previousStatuses.set(order.id, order.status);
             });
           }
-
-          previousStatusesRef.current = new Map(data.map((order) => [order.id, order.status]));
           return data;
         });
       } else {
-        console.error("Unexpected /orders response", data);
-        setError("Unexpected server response");
         setOrders([]);
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Network error");
+      setError(err.message || "Failed to load orders");
       setOrders([]);
-      throw err;
     } finally {
       if (!silent) {
         setLoading(false);
       }
     }
   }, [showSnackbar]);
+
+  // Filter orders based on date
+  useEffect(() => {
+    if (!dateFilter) {
+      setFilteredOrders(orders);
+      return;
+    }
+
+    const filtered = orders.filter((order) => {
+      const orderDate = new Date(order.created_at || order.createdAt).toDateString();
+      const filterDate = new Date(dateFilter).toDateString();
+      return orderDate === filterDate;
+    });
+
+    setFilteredOrders(filtered);
+  }, [orders, dateFilter]);
 
   useEffect(() => {
     loadOrders().catch(() => navigate("/"));
@@ -92,6 +115,29 @@ function CustomerOrders() {
   return (
     <div style={{ padding: "24px" }}>
       <h2>My Orders</h2>
+      
+      {/* Date Filter */}
+      <div className="date-filter-container">
+        <label htmlFor="date-filter" className="date-filter-label">
+          Filter by date:
+        </label>
+        <input
+          id="date-filter"
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="date-filter-input"
+        />
+        {dateFilter && (
+          <button
+            type="button"
+            onClick={() => setDateFilter("")}
+            className="clear-filter-btn"
+          >
+            Clear
+          </button>
+        )}
+      </div>
 
       <div className="orders-container">
         {loading && (
@@ -112,11 +158,11 @@ function CustomerOrders() {
           </div>
         )}
 
-        {!loading && orders.length === 0 && (
+        {!loading && filteredOrders.length === 0 && (
           <div className="empty-state">
-            <p>No orders yet.</p>
+            <p>{dateFilter ? "No orders found for this date." : "No orders yet."}</p>
             <p style={{ fontSize: "14px", marginTop: "8px" }}>
-              Start shopping to see your orders here!
+              {dateFilter ? "Try a different date or clear the filter." : "Start browsing products to see your orders here!"}
             </p>
           </div>
         )}
@@ -136,7 +182,7 @@ function CustomerOrders() {
         )}
 
         {!loading &&
-          orders.map((order) => (
+          filteredOrders.map((order) => (
             <div key={order.id} className="order">
               <div className="order-actions">
                 {order.status === "pending" && (
@@ -155,6 +201,8 @@ function CustomerOrders() {
                               : currentOrder,
                           ),
                         );
+                        // Re-fetch orders to get updated status from backend
+                        loadOrders({ silent: true });
                       } catch (err) {
                         showSnackbar(err.message || "Failed to cancel order", "error");
                       } finally {
@@ -163,7 +211,7 @@ function CustomerOrders() {
                     }}
                     disabled={cancellingId === order.id}
                   >
-                    {cancellingId === order.id ? "Cancelling..." : "Cancel"}
+                    Cancel
                   </button>
                 )}
 
@@ -213,7 +261,7 @@ function CustomerOrders() {
                   </p>
                 </div>
                 <span className={`status-badge status-${order.status}`}>
-                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                  Status: {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                 </span>
               </div>
 
@@ -231,7 +279,7 @@ function CustomerOrders() {
                     <div className="item-info">
                       <p className="item-name">{item.Product.name}</p>
                       <p className="item-meta">Qty: {item.quantity}</p>
-                      <p className="item-price">Rs {Number(item.price).toFixed(2)}</p>
+                      <p className="item-price">{formatIndianPrice(Number(item.price))}</p>
                     </div>
                   </div>
                 ))}
@@ -243,7 +291,7 @@ function CustomerOrders() {
                     Total Amount
                   </p>
                   <h4 style={{ margin: "4px 0 0 0" }}>
-                    Rs {Number(order.total_price).toFixed(2)}
+                    {formatIndianPrice(Number(order.total_price))}
                   </h4>
                   {order.status === "delivered" && (
                     <p style={{ margin: "6px 0 0 0", fontSize: "12px", color: "var(--muted)" }}>

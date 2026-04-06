@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import loadingGif from "../assets/loading.gif";
 import { login } from "../api";
 import { useSnackbar } from "../components/SnackbarProvider";
+import { Button, Input } from "../components/UI";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -55,36 +56,48 @@ function Login() {
           </div>
         ) : (
           <>
-            <h2>Login</h2>
+            <h2>Welcome Back</h2>
+            <p>Sign in to your account to continue</p>
             <form id="loginForm" onSubmit={handleSubmit}>
-              <input
-                type="email"
+              <Input
                 id="email"
-                placeholder="Email"
+                type="email"
+                label="Email Address"
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
+                fullWidth
               />
 
-              <input
-                type="password"
+              <Input
                 id="password"
-                placeholder="Password"
+                type="password"
+                label="Password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
+                fullWidth
               />
 
-              <button type="submit">Login</button>
+              <Button 
+                type="submit" 
+                variant="primary" 
+                size="lg" 
+                loading={isSubmitting}
+                fullWidth
+              >
+                Sign In
+              </Button>
             </form>
 
-            <p>
-              <Link to="/forgot-password">Forgot password?</Link>
-            </p>
-
-            <p>
-              New user? <Link to="/register">register</Link>
-            </p>
+            <div className="login-links">
+              <p>Don't have an account? <Link to="/register">Sign up</Link></p>
+              <p><Link to="/forgot-password">Forgot your password?</Link></p>
+            </div>
           </>
         )}
       </div>

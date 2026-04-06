@@ -1,18 +1,88 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
 :root {
   --app-header-height: 74px;
-  --font-sans: "Sora", sans-serif;
-  --color-bg: #f2f7f8;
-  --color-bg-soft: #fbfcfd;
+  --font-sans: "Inter", "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  
+  /* Professional Color Palette */
+  --color-bg: #f8fafc;
+  --color-bg-soft: #f1f5f9;
+  --color-bg-strong: #ffffff;
   --color-panel: #ffffff;
-  --color-panel-soft: #f6fafb;
-  --color-text: #17324a;
-  --color-text-muted: #60738a;
-  --color-border: #d9e5ec;
-  --color-accent: #2e7d9a;
-  --color-accent-strong: #215e75;
-  --color-accent-soft: rgba(46, 125, 154, 0.12);
-  --color-success: #2d7a47;
-  --color-warning: #9a6a00;
-  --color-danger: #bf3030;
-  --shadow-soft: 0 12px 28px rgba(23, 50, 74, 0.08);
+  --color-panel-soft: #f8fafc;
+  --color-panel-border: #e2e8f0;
+  
+  /* Text Colors */
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-faint: #94a3b8;
+  --color-text-inverse: #ffffff;
+  
+  /* Brand Colors */
+  --color-primary: #0f766e;
+  --color-primary-hover: #0d5f56;
+  --color-primary-light: #f0fdfa;
+  --color-primary-medium: #14b8a6;
+  
+  /* Semantic Colors */
+  --color-success: #059669;
+  --color-success-light: #ecfdf5;
+  --color-warning: #d97706;
+  --color-warning-light: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-light: #fef2f2;
+  --color-info: #2563eb;
+  --color-info-light: #eff6ff;
+  
+  /* Border & Background */
+  --color-border: #e2e8f0;
+  --color-border-light: #f1f5f9;
+  --color-border-strong: #cbd5e1;
+  
+  /* Shadows */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-soft: 0 2px 15px -3px rgb(0 0 0 / 0.07);
+  --shadow-strong: 0 10px 40px -10px rgb(0 0 0 / 0.15);
+  
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+  
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Z-index */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
 }

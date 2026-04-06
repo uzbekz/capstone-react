@@ -124,21 +124,41 @@
   border: none;
   border-radius: 10px;
   min-height: 40px;
-  padding: 0 14px;
-  font-size: 13px;
-  font-weight: 700;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  color: #fff;
-  background: var(--color-accent);
+  color: white;
+  transition: all var(--transition-normal);
+  white-space: nowrap;
+  background: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.bulk-operations-controls button:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .bulk-operations-controls button.secondary {
-  background: #3f7d44;
+  background: var(--color-success);
+}
+
+.bulk-operations-controls button.secondary:hover:not(:disabled) {
+  background: #047857;
 }
 
 .bulk-operations-controls button.ghost {
-  background: #eaf1f4;
+  background: var(--color-bg-soft);
   color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.bulk-operations-controls button.ghost:hover:not(:disabled) {
+  background: var(--color-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .product-array {

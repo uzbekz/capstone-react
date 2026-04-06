@@ -1,9 +1,10 @@
 .dashboard-redesign {
   min-height: 100vh;
-  padding: 24px 18px 42px;
+  padding: var(--space-6) var(--space-5) var(--space-12);
   background:
-    radial-gradient(circle at top right, rgba(93, 123, 212, 0.08), transparent 22%),
-    linear-gradient(180deg, #f6f7f4, #f8fbfd);
+    radial-gradient(circle at 20% 10%, rgba(15, 118, 110, 0.06), transparent 30%),
+    radial-gradient(circle at 80% 90%, rgba(59, 130, 246, 0.04), transparent 40%),
+    linear-gradient(180deg, var(--color-bg), var(--color-bg-soft));
 }
 
 .dashboard-hero,
@@ -11,38 +12,40 @@
 .dashboard-stats,
 .dashboard-filtered-section,
 .dashboard-reporting-section {
-  max-width: 1280px;
+  max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
 }
 
 .dashboard-hero {
-  margin-bottom: 18px;
+  margin-bottom: var(--space-6);
 }
 
 .dashboard-kicker,
 .dashboard-section-kicker {
-  margin: 0 0 8px;
-  font-size: 13px;
+  margin: 0 0 var(--space-2);
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 
 .dashboard-hero h1 {
   margin: 0;
-  font-size: clamp(34px, 5vw, 46px);
-  line-height: 1.05;
+  font-size: clamp(2rem, 4vw, 2.875rem);
+  line-height: 1.1;
   color: var(--color-text);
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 .dashboard-hero .subtitle {
-  margin: 14px 0 0;
+  margin: var(--space-4) 0 0;
   max-width: 72ch;
   color: var(--color-text-muted);
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 0.9375rem;
+  line-height: 1.6;
 }
 
 .dashboard-filter-bar {
@@ -114,6 +117,13 @@
   font-size: clamp(28px, 4vw, 44px);
   line-height: 1;
   color: #1b3557;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Smaller font for inventory value card to prevent overflow */
+.dashboard-stat-card:nth-child(2) strong {
+  font-size: clamp(20px, 3vw, 32px);
 }
 
 .dashboard-filtered-section,
@@ -368,12 +378,11 @@
 
 .dashboard-export-buttons {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
+  gap: var(--space-4);
+  justify-content: center;
+  padding: var(--space-8) 0;
+  margin-top: var(--space-8);
+  border-top: 1px solid var(--color-border-light);
 }
 
 .dashboard-export-btn {

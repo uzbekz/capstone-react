@@ -1,14 +1,24 @@
 import "./DashBoard.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  getAppSettings,
-  getDashboardReports,
   getProducts,
-  getAuditLog,
+  getDashboardReports,
+  getAppSettings,
   downloadAdminCsv,
 } from "../api.js";
 import Chart from "chart.js/auto";
+import { useSnackbar } from "../components/SnackbarProvider";
 import loadingGif from "../assets/loading.gif";
+
+// Helper function for Indian currency formatting
+function formatIndianPrice(price) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+}
 
 function formatDateForInput(value) {
   if (!value) return "";
@@ -27,13 +37,12 @@ function getDefaultDateRange() {
   };
 }
 
-function Dashboard({ products }) {
+function Dashboard() {
   const defaultDateRange = useMemo(() => getDefaultDateRange(), []);
-  const [localProducts, setLocalProducts] = useState([]);
-  const [reports, setReports] = useState({});
-  const [settings, setSettings] = useState({ low_stock_threshold: 10 });
+  const [products, setProducts] = useState([]);
+  const [reports, setReports] = useState(null);
+  const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [auditEntries, setAuditEntries] = useState([]);
   const [exportBusy, setExportBusy] = useState(false);
   const [dateFrom, setDateFrom] = useState(defaultDateRange.start);
   const [dateTo, setDateTo] = useState(defaultDateRange.end);
@@ -46,53 +55,35 @@ function Dashboard({ products }) {
   const chartsRef = useRef([]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadAll() {
+    const loadDashboard = async () => {
       setLoading(true);
-      try {
-        const productsPromise =
-          products && products.length ? Promise.resolve(products) : getProducts();
-        const reportsPromise = getDashboardReports();
-        const settingsPromise = getAppSettings();
 
-        const auditPromise = getAuditLog(20).catch(() => []);
+      const productsPromise = getProducts();
+      const reportsPromise = getDashboardReports();
+      const settingsPromise = getAppSettings();
 
-        const [productData, reportData, settingsData, auditData] = await Promise.all([
-          productsPromise,
-          reportsPromise,
-          settingsPromise,
-          auditPromise,
-        ]);
+      const [productData, reportData, settingsData] = await Promise.all([
+        productsPromise,
+        reportsPromise,
+        settingsPromise,
+      ]);
 
-        if (cancelled) return;
-
-        const normalizedProducts = productData || [];
-
-        setLocalProducts(normalizedProducts);
-        setReports(reportData || {});
-        setSettings({ low_stock_threshold: settingsData?.low_stock_threshold || 10 });
-        setAuditEntries(Array.isArray(auditData) ? auditData : []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    loadAll();
-    return () => {
-      cancelled = true;
+      setProducts(productData);
+      setReports(reportData);
+      setSettings(settingsData);
+      setLoading(false);
     };
-  }, [products]);
+
+    loadDashboard();
+  }, [dateFrom, dateTo, selectedCategory]);
 
   const categories = useMemo(
-    () => [...new Set(localProducts.map((product) => product.category).filter(Boolean))].sort(),
-    [localProducts],
+    () => [...new Set(products.map((product) => product.category).filter(Boolean))].sort(),
+    [products],
   );
 
   const filteredProducts = useMemo(() => {
-    return localProducts.filter((product) => {
+    return products.filter((product) => {
       const createdDate = formatDateForInput(product.created_at || product.createdAt);
       const matchesFrom = !dateFrom || (createdDate && createdDate >= dateFrom);
       const matchesTo = !dateTo || (createdDate && createdDate <= dateTo);
@@ -100,7 +91,7 @@ function Dashboard({ products }) {
 
       return matchesFrom && matchesTo && matchesCategory;
     });
-  }, [localProducts, dateFrom, dateTo, selectedCategory]);
+  }, [products, dateFrom, dateTo, selectedCategory]);
 
   const filteredMetrics = useMemo(() => {
     const totalProducts = filteredProducts.length;
@@ -110,9 +101,9 @@ function Dashboard({ products }) {
       0,
     );
     const lowStockCount = filteredProducts.filter(
-      (product) => Number(product.quantity) < settings.low_stock_threshold,
+      (product) => Number(product.quantity) < (settings?.low_stock_threshold || 10),
     ).length;
-    const activeCategories = new Set(filteredProducts.map((product) => product.category).filter(Boolean)).size;
+    const activeCategories = [...new Set(filteredProducts.map((product) => product.category))].length;
 
     return {
       totalProducts,
@@ -121,7 +112,7 @@ function Dashboard({ products }) {
       lowStockCount,
       activeCategories,
     };
-  }, [filteredProducts, settings.low_stock_threshold]);
+  }, [filteredProducts, settings?.low_stock_threshold]);
 
   const categoryMap = useMemo(() => {
     const map = {};
@@ -145,16 +136,16 @@ function Dashboard({ products }) {
 
   const lowStockItems = useMemo(() => {
     return [...filteredProducts]
-      .filter((product) => Number(product.quantity) < settings.low_stock_threshold)
+      .filter((product) => Number(product.quantity) < (settings?.low_stock_threshold || 10))
       .sort((a, b) => Number(a.quantity) - Number(b.quantity))
       .slice(0, 6);
-  }, [filteredProducts, settings.low_stock_threshold]);
+  }, [filteredProducts, settings?.low_stock_threshold]);
 
   useEffect(() => {
     chartsRef.current.forEach((chart) => chart.destroy());
     chartsRef.current = [];
 
-    if (trendChartRef.current && reports.revenueByMonth?.length) {
+    if (trendChartRef.current && reports?.revenueByMonth?.length) {
       const trendChart = new Chart(trendChartRef.current, {
         type: "line",
         data: {
@@ -167,10 +158,8 @@ function Dashboard({ products }) {
               backgroundColor: "rgba(78,166,109,0.16)",
               pointBackgroundColor: "#ffffff",
               pointBorderColor: "#4ea66d",
-              pointBorderWidth: 3,
-              pointRadius: 5,
-              tension: 0.25,
-              fill: false,
+              pointBorderWidth: 2,
+              tension: 0.3,
             },
           ],
         },
@@ -187,7 +176,7 @@ function Dashboard({ products }) {
             y: {
               beginAtZero: true,
               ticks: {
-                callback: (value) => `Rs ${value}`,
+                callback: (value) => formatIndianPrice(value),
               },
               grid: {
                 color: "rgba(148, 163, 184, 0.2)",
@@ -238,7 +227,7 @@ function Dashboard({ products }) {
       chartsRef.current.push(categoryChart);
     }
 
-    if (ordersChartRef.current && reports.monthlyOrders?.length) {
+    if (ordersChartRef.current && reports?.monthlyOrders?.length) {
       const ordersChart = new Chart(ordersChartRef.current, {
         type: "bar",
         data: {
@@ -359,7 +348,7 @@ function Dashboard({ products }) {
         </article>
         <article className="dashboard-stat-card">
           <span>Total Inventory Value</span>
-          <strong>Rs {filteredMetrics.inventoryValue.toFixed(0)}</strong>
+          <strong>{formatIndianPrice(filteredMetrics.inventoryValue)}</strong>
         </article>
         <article className="dashboard-stat-card">
           <span>Total Stock Units</span>
@@ -371,7 +360,7 @@ function Dashboard({ products }) {
         </article>
       </section>
 
-      {reports.funnel && (
+      {reports?.funnel && (
         <section className="dashboard-stats dashboard-funnel-row">
           <article className="dashboard-stat-card">
             <span>Pending orders</span>
@@ -391,60 +380,6 @@ function Dashboard({ products }) {
           </article>
         </section>
       )}
-
-      <section className="dashboard-exports-audit">
-        <div className="dashboard-export-buttons">
-          <button
-            type="button"
-            className="dashboard-export-btn"
-            disabled={exportBusy}
-            onClick={async () => {
-              try {
-                setExportBusy(true);
-                await downloadAdminCsv("/reports/export/orders", "orders.csv");
-              } catch (e) {
-                console.error(e);
-              } finally {
-                setExportBusy(false);
-              }
-            }}
-          >
-            Export orders CSV
-          </button>
-          <button
-            type="button"
-            className="dashboard-export-btn secondary"
-            disabled={exportBusy}
-            onClick={async () => {
-              try {
-                setExportBusy(true);
-                await downloadAdminCsv("/reports/export/low-stock", "low-stock.csv");
-              } catch (e) {
-                console.error(e);
-              } finally {
-                setExportBusy(false);
-              }
-            }}
-          >
-            Export low-stock CSV
-          </button>
-        </div>
-        <div className="dashboard-audit-panel">
-          <h3>Recent audit log</h3>
-          <ul className="dashboard-audit-list">
-            {auditEntries.map((row) => (
-              <li key={row.id}>
-                <span className="audit-time">
-                  {row.created_at ? new Date(row.created_at).toLocaleString() : ""}
-                </span>
-                <span className="audit-action">{row.action}</span>
-                <span className="audit-user">{row.user?.email || "—"}</span>
-              </li>
-            ))}
-            {auditEntries.length === 0 && <li className="audit-empty">No entries yet.</li>}
-          </ul>
-        </div>
-      </section>
 
       <section className="dashboard-filtered-section">
         <div className="dashboard-section-head">
@@ -525,7 +460,7 @@ function Dashboard({ products }) {
             <div className="panel-header">
               <div>
                 <h3>Low Stock Watchlist</h3>
-                <p>Products below the threshold of {settings.low_stock_threshold} units.</p>
+                <p>Products below the threshold of {settings?.low_stock_threshold || 10} units.</p>
               </div>
             </div>
             <div className="insight-table-wrap">
@@ -604,12 +539,12 @@ function Dashboard({ products }) {
               <div className="summary-row">
                 <span>Top Seller</span>
                 <strong>
-                  {reports.mostSoldProduct ? `${reports.mostSoldProduct.name} (${reports.mostSoldProduct.sold})` : "N/A"}
+                  {reports?.mostSoldProduct ? `${reports.mostSoldProduct.name} (${reports.mostSoldProduct.sold})` : "N/A"}
                 </strong>
               </div>
               <div className="summary-row">
                 <span>Most Profitable Category</span>
-                <strong>{reports.mostProfitableCategory?.category || "N/A"}</strong>
+                <strong>{reports?.mostProfitableCategory?.category || "N/A"}</strong>
               </div>
               <div className="summary-row">
                 <span>Product Added Window</span>
@@ -623,6 +558,46 @@ function Dashboard({ products }) {
               </div>
             </div>
           </article>
+        </div>
+      </section>
+
+      {/* Export buttons moved to bottom */}
+      <section className="dashboard-exports-section">
+        <div className="dashboard-export-buttons">
+          <button
+            type="button"
+            className="dashboard-export-btn"
+            disabled={exportBusy}
+            onClick={async () => {
+              try {
+                setExportBusy(true);
+                await downloadAdminCsv("/reports/export/orders", "orders.csv");
+              } catch (e) {
+                console.error(e);
+              } finally {
+                setExportBusy(false);
+              }
+            }}
+          >
+            Export orders CSV
+          </button>
+          <button
+            type="button"
+            className="dashboard-export-btn secondary"
+            disabled={exportBusy}
+            onClick={async () => {
+              try {
+                setExportBusy(true);
+                await downloadAdminCsv("/reports/export/low-stock", "low-stock.csv");
+              } catch (e) {
+                console.error(e);
+              } finally {
+                setExportBusy(false);
+              }
+            }}
+          >
+            Export low-stock CSV
+          </button>
         </div>
       </section>
     </div>

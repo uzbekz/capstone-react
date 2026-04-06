@@ -65,8 +65,7 @@ function AppHeader() {
         { to: "/dashboard", label: "Dashboard" },
       ]
     : [
-        { to: "/customerProducts", label: "Shop" },
-        { to: "/wishlist", label: "Wishlist" },
+        { to: "/customerProducts", label: "Products" },
         { to: "/cart", label: "Cart" },
         { to: "/customerOrders", label: "Orders" },
         { to: "/profile", label: "Profile" },
@@ -93,7 +92,7 @@ function AppHeader() {
     <header className="app-header">
       <div className="app-header-inner">
         <Link to={homeRoute} className="app-header-brand">
-          Capstone
+          <span>Capstone</span>
         </Link>
 
         <nav className="app-header-nav" aria-label="Primary">
@@ -109,7 +108,7 @@ function AppHeader() {
                 to={item.to}
                 className={`app-header-link ${isActive ? "active" : ""}`}
               >
-                {item.label}
+                <span>{item.label}</span>
               </Link>
             );
           })}
@@ -123,7 +122,7 @@ function AppHeader() {
             </div>
           )}
           <button type="button" className="app-header-logout" onClick={handleLogout}>
-            Logout
+            <span>Logout</span>
           </button>
         </div>
       </div>

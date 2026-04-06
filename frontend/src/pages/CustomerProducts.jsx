@@ -3,16 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getProducts,
-  addToCartRequest,
+  getAppSettings,
   getCart,
+  addToCartRequest,
   updateCartItem,
   removeCartItem,
-  getWishlist,
-  addWishlistItem,
-  removeWishlistItem,
-} from "../api";
-import loadingGif from "../assets/loading.gif";
+  getPublicSettings,
+} from "../api.js";
 import { useSnackbar } from "../components/SnackbarProvider";
+import loadingGif from "../assets/loading.gif";
 
 function CustomerProducts({ products, setProducts, categories }) {
   const navigate = useNavigate();
@@ -20,20 +19,40 @@ function CustomerProducts({ products, setProducts, categories }) {
   const [loading, setLoading] = useState(true);
   const [cartByProduct, setCartByProduct] = useState({});
   const cartByProductRef = useRef({});
+  const [settings, setSettings] = useState(null);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("default");
   /** Per-product quantity to add when pressing + (string for controlled input while typing) */
   const [qtyToAddDraft, setQtyToAddDraft] = useState({});
-  const [wishIds, setWishIds] = useState(() => new Set());
   const { showSnackbar } = useSnackbar();
+
+// Helper function for Indian currency formatting
+function formatIndianPrice(price) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+}
 
   useEffect(() => {
     async function loadProducts() {
       setLoading(true);
       const data = await getProducts();
       setProducts(data);
+      
+      // Load public settings for all users
+      try {
+        const settingsData = await getPublicSettings();
+        setSettings(settingsData);
+      } catch (error) {
+        console.log('Settings not available, using defaults');
+        setSettings({ max_product_quantity: 10 });
+      }
+      
       setLoading(false);
     }
     loadProducts();
@@ -63,14 +82,6 @@ function CustomerProducts({ products, setProducts, categories }) {
 
   useEffect(() => {
     loadCart();
-  }, []);
-
-  useEffect(() => {
-    getWishlist()
-      .then((list) => {
-        if (Array.isArray(list)) setWishIds(new Set(list.map((p) => p.id)));
-      })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -119,32 +130,12 @@ function CustomerProducts({ products, setProducts, categories }) {
     return Math.max(0, Number(p.quantity) - Number(p.reserved_quantity || 0));
   }
 
-  async function toggleWishlist(productId) {
-    try {
-      if (wishIds.has(productId)) {
-        await removeWishlistItem(productId);
-        setWishIds((prev) => {
-          const next = new Set(prev);
-          next.delete(productId);
-          return next;
-        });
-        showSnackbar("Removed from wishlist.", "success");
-      } else {
-        await addWishlistItem(productId);
-        setWishIds((prev) => new Set(prev).add(productId));
-        showSnackbar("Saved to wishlist.", "success");
-      }
-    } catch {
-      showSnackbar("Wishlist update failed.", "error");
-    }
-  }
-
   function getQtyToAddValue(productId) {
-    return qtyToAddDraft[productId] ?? "1";
+    return qtyToAddDraft[productId] ?? "";
   }
 
   function setQtyToAddValue(productId, value) {
-    setQtyToAddDraft((prev) => ({ ...prev, [productId]: value }));
+    setQtyToAddDraft((prev) => ({ ...prev, [productId]: value || "" }));
   }
 
   function parseQtyToAdd(product, cartQty) {
@@ -159,8 +150,23 @@ function CustomerProducts({ products, setProducts, categories }) {
   async function addToCart(product, qty) {
     const currentEntry = cartByProductRef.current[product.id];
     const currentQty = currentEntry?.quantity || 0;
-    const increment = Math.min(qty, Math.max(0, sellable(product) - currentQty));
-    if (increment <= 0) return;
+    const maxProductQuantity = settings?.max_product_quantity || 10;
+    
+    // Check if adding this quantity would exceed the admin limit
+    if (currentQty + qty > maxProductQuantity) {
+      showSnackbar(`Cannot add more than ${maxProductQuantity} units of ${product.name} to cart. Product limit: ${maxProductQuantity}`, "error");
+      return;
+    }
+    
+    // Also check available stock
+    const availableStock = sellable(product);
+    const maxAddable = Math.min(qty, availableStock - currentQty);
+    if (maxAddable <= 0) {
+      showSnackbar(`Cannot add more items. Only ${availableStock - currentQty} units available.`, "warning");
+      return;
+    }
+    
+    const increment = maxAddable;
 
     setCartByProduct((prev) => {
       const existing = prev[product.id];
@@ -328,14 +334,6 @@ function CustomerProducts({ products, setProducts, categories }) {
 
             return (
               <div key={product.id} className="product-card">
-                <button
-                  type="button"
-                  className={`wishlist-heart ${wishIds.has(product.id) ? "on" : ""}`}
-                  onClick={() => toggleWishlist(product.id)}
-                  aria-label={wishIds.has(product.id) ? "Remove from wishlist" : "Add to wishlist"}
-                >
-                  {wishIds.has(product.id) ? "♥" : "♡"}
-                </button>
                 {product.imageSrc ? (
                   <img src={product.imageSrc} alt={product.name} />
                 ) : (
@@ -345,9 +343,8 @@ function CustomerProducts({ products, setProducts, categories }) {
                 <div className="product-content">
                   <div className="product-header-row">
                     <h3 className="product-title">{product.name}</h3>
-                    <p className="product-price">₹{Number(product.price).toFixed(2)}</p>
                   </div>
-
+                  <p className="product-price">{formatIndianPrice(Number(product.price))}</p>
                   <p className="product-category">{product.category}</p>
 
                   <div className="product-bottom-row">
@@ -357,63 +354,103 @@ function CustomerProducts({ products, setProducts, categories }) {
                         <span className="stock-reserved"> ({product.quantity} in warehouse)</span>
                       )}
                     </p>
+                  </div>
 
-                    <div className="qty-stepper">
-                      <button
-                        type="button"
-                        onClick={() => decrementCartItem(product)}
-                        disabled={cartQty <= 0}
-                        aria-label={`Decrease ${product.name}`}
-                      >
-                        -
-                      </button>
-                      <span className="qty-stepper-in-cart" title="In your cart">
-                        {cartQty}
-                      </span>
-                      <label className="qty-add-label">
-                        <span className="qty-add-label-text">Add</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="off"
-                          className="qty-add-input"
-                          value={getQtyToAddValue(product.id)}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (v === "") {
-                              setQtyToAddValue(product.id, "");
-                              return;
-                            }
-                            if (/^\d+$/.test(v)) {
-                              const maxAdd = Math.max(0, avail - cartQty);
-                              const n = parseInt(v, 10);
-                              if (maxAdd <= 0) return;
-                              setQtyToAddValue(
-                                product.id,
-                                String(Math.min(n, maxAdd)),
-                              );
-                            }
-                          }}
-                          onBlur={() => {
+                  {/* Bulk quantity buttons */}
+                  <div className="bulk-qty-buttons">
+                    <button
+                      type="button"
+                      className="bulk-qty-btn"
+                      onClick={() => {
+                        const maxProductQuantity = settings?.max_product_quantity || 10;
+                        const currentQty = cartQty;
+                        const availableToAdd = Math.min(10, Math.max(0, avail - cartQty));
+                        const allowedByAdmin = Math.max(0, maxProductQuantity - currentQty);
+                        const qtyToAdd = Math.min(availableToAdd, allowedByAdmin);
+                        
+                        if (qtyToAdd > 0) {
+                          addToCart(product, qtyToAdd);
+                        } else if (allowedByAdmin <= 0) {
+                          showSnackbar(`Cannot add more. Product limit: ${maxProductQuantity} units per product`, "error");
+                        } else if (availableToAdd <= 0) {
+                          showSnackbar(`Only ${avail - cartQty} units available in stock`, "warning");
+                        } else {
+                          showSnackbar(`Can only add ${qtyToAdd} units (limit: ${maxProductQuantity})`, "warning");
+                        }
+                      }}
+                      disabled={cartQty >= (settings?.max_product_quantity || 10) || avail - cartQty < 1}
+                      title="Add 10 items"
+                    >
+                      +10
+                    </button>
+                    <button
+                      type="button"
+                      className="bulk-qty-btn"
+                      onClick={() => {
+                        const maxProductQuantity = settings?.max_product_quantity || 10;
+                        const currentQty = cartQty;
+                        const availableToAdd = Math.min(25, Math.max(0, avail - cartQty));
+                        const allowedByAdmin = Math.max(0, maxProductQuantity - currentQty);
+                        const qtyToAdd = Math.min(availableToAdd, allowedByAdmin);
+                        
+                        if (qtyToAdd > 0) {
+                          addToCart(product, qtyToAdd);
+                        } else if (allowedByAdmin <= 0) {
+                          showSnackbar(`Cannot add more. Product limit: ${maxProductQuantity} units per product`, "error");
+                        } else if (availableToAdd <= 0) {
+                          showSnackbar(`Only ${avail - cartQty} units available in stock`, "warning");
+                        } else {
+                          showSnackbar(`Can only add ${qtyToAdd} units (limit: ${maxProductQuantity})`, "warning");
+                        }
+                      }}
+                      disabled={cartQty >= (settings?.max_product_quantity || 10) || avail - cartQty < 1}
+                      title="Add 25 items"
+                    >
+                      +25
+                    </button>
+                    <div className="custom-qty-input-group">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        className="custom-qty-input"
+                        placeholder="Qty"
+                        value={getQtyToAddValue(product.id)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") {
+                            setQtyToAddValue(product.id, "");
+                            return;
+                          }
+                          if (/^\d+$/.test(v)) {
                             const maxAdd = Math.max(0, avail - cartQty);
-                            if (maxAdd <= 0) return;
-                            const v = getQtyToAddValue(product.id);
-                            if (v === "" || !/^\d+$/.test(v)) {
-                              setQtyToAddValue(product.id, "1");
-                              return;
-                            }
                             const n = parseInt(v, 10);
+                            if (maxAdd <= 0) return;
                             setQtyToAddValue(
                               product.id,
-                              String(Math.min(Math.max(1, n), maxAdd)),
+                              String(Math.min(n, maxAdd)),
                             );
-                          }}
-                          disabled={cartQty >= avail}
-                          aria-label={`Quantity of ${product.name} to add to cart`}
-                        />
-                      </label>
+                          }
+                        }}
+                        onBlur={() => {
+                          const maxAdd = Math.max(0, avail - cartQty);
+                          if (maxAdd <= 0) return;
+                          const v = getQtyToAddValue(product.id);
+                          if (v === "" || !/^\d+$/.test(v)) {
+                            setQtyToAddValue(product.id, "1");
+                            return;
+                          }
+                          const n = parseInt(v, 10);
+                          setQtyToAddValue(
+                            product.id,
+                            String(Math.min(Math.max(1, n), maxAdd)),
+                          );
+                        }}
+                        disabled={cartQty >= (settings?.max_product_quantity || 10) || avail - cartQty < 1}
+                      />
                       <button
                         type="button"
+                        className="custom-qty-add-btn"
                         onClick={() => {
                           const n = parseQtyToAdd(product, cartQty);
                           if (n <= 0) return;
@@ -422,9 +459,15 @@ function CustomerProducts({ products, setProducts, categories }) {
                         disabled={cartQty >= avail}
                         aria-label={`Add ${product.name} to cart`}
                       >
-                        +
+                        Add
                       </button>
                     </div>
+                  </div>
+
+                  {/* In cart indicator */}
+                  <div className="in-cart-section">
+                    <span className="in-cart-label">In cart:</span>
+                    <span className="in-cart-count">{cartQty}</span>
                   </div>
                 </div>
               </div>

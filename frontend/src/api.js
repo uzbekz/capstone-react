@@ -223,6 +223,10 @@ export async function getCustomerOrders() {
   return request("/orders");
 }
 
+export async function getPublicSettings() {
+  return request("/public-settings");
+}
+
 export async function getAllOrders() {
   return request("/orders/all");
 }

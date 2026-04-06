@@ -35,13 +35,19 @@ const DEFAULT_APP_SETTINGS = {
   delivery_max_minutes: 10,
   low_stock_threshold: 10,
   default_restock_increment: 100,
-  max_cart_quantity: 10
+  max_product_quantity: 10
 };
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5174";
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || FRONTEND_URL)
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+// Also allow common local development ports
+const LOCAL_DEV_PORTS = ['5173', '5174', '3000', '8080'];
+const LOCAL_DEV_ORIGINS = LOCAL_DEV_PORTS.map(port => `http://localhost:${port}`);
+
+const ALL_ALLOWED_ORIGINS = [...new Set([...ALLOWED_ORIGINS, ...LOCAL_DEV_ORIGINS])];
 const CSRF_EXEMPT_PATHS = new Set([
   "/auth/login",
   "/auth/register",
@@ -215,7 +221,7 @@ app.use(helmet({
 }));
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    if (!origin || ALL_ALLOWED_ORIGINS.includes(origin)) {
       return callback(null, true);
     }
 
@@ -1027,7 +1033,7 @@ app.post(
     try {
       const { product_id, quantity } = req.body;
       const userId = req.user.id;
-      const maxCartQuantity = await getNumericSetting("max_cart_quantity");
+      const maxProductQuantity = await getNumericSetting("max_product_quantity");
       const product = await Product.findByPk(product_id);
       if (!product) return res.status(404).json({ message: "Product not found" });
       if (quantity <= 0) return res.status(400).json({ message: "Invalid quantity" });
@@ -1035,9 +1041,9 @@ app.post(
       // upsert
       let cartItem = await Cart.findOne({ where: { user_id: userId, product_id } });
       if (cartItem) {
-        if (cartItem.quantity + quantity > maxCartQuantity) {
+        if (cartItem.quantity + quantity > maxProductQuantity) {
           return res.status(400).json({
-            message: `You can add up to ${maxCartQuantity} units of a product to your cart`
+            message: `You can add up to ${maxProductQuantity} units of a product to your cart`
           });
         }
         if (cartItem.quantity + quantity > sellable) {
@@ -1048,9 +1054,9 @@ app.post(
         cartItem.quantity += quantity;
         await cartItem.save();
       } else {
-        if (quantity > maxCartQuantity) {
+        if (quantity > maxProductQuantity) {
           return res.status(400).json({
-            message: `You can add up to ${maxCartQuantity} units of a product to your cart`
+            message: `You can add up to ${maxProductQuantity} units of a product to your cart`
           });
         }
         if (quantity > sellable) {
@@ -1080,15 +1086,15 @@ app.put(
   async (req, res) => {
     try {
       const { quantity } = req.body;
-      const maxCartQuantity = await getNumericSetting("max_cart_quantity");
+      const maxProductQuantity = await getNumericSetting("max_product_quantity");
       const cartItem = await Cart.findByPk(req.params.id);
       if (!cartItem || cartItem.user_id !== req.user.id) {
         return res.status(404).json({ message: "Cart item not found" });
       }
       if (quantity <= 0) return res.status(400).json({ message: "Invalid quantity" });
-      if (quantity > maxCartQuantity) {
+      if (quantity > maxProductQuantity) {
         return res.status(400).json({
-          message: `You can add up to ${maxCartQuantity} units of a product to your cart`
+          message: `You can add up to ${maxProductQuantity} units of a product to your cart`
         });
       }
       const product = await Product.findByPk(cartItem.product_id);
@@ -1247,6 +1253,24 @@ app.get(
 
       const settings = await getAppSettingsMap();
       res.json(settings);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// Public settings endpoint for customers (read-only access to specific settings)
+app.get(
+  "/public-settings",
+  authenticate,
+  authorize("customer"),
+  async (req, res) => {
+    try {
+      // Only return specific settings that customers need
+      const publicSettings = {
+        max_product_quantity: await getNumericSetting("max_product_quantity")
+      };
+      res.json(publicSettings);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

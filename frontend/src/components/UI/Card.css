@@ -1,0 +1,135 @@
+.card {
+  background: var(--color-panel);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.card--interactive {
+  cursor: pointer;
+}
+
+/* Variants */
+.card--default {
+  border: 1px solid var(--color-border);
+}
+
+.card--elevated {
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-strong);
+}
+
+.card--outlined {
+  background: transparent;
+  border: 2px solid var(--color-border);
+}
+
+.card--filled {
+  background: var(--color-bg-soft);
+  border: 1px solid var(--color-border-light);
+}
+
+/* Padding */
+.card--padding-sm {
+  padding: var(--space-3);
+}
+
+.card--padding-md {
+  padding: var(--space-4);
+}
+
+.card--padding-lg {
+  padding: var(--space-6);
+}
+
+.card--padding-xl {
+  padding: var(--space-8);
+}
+
+/* Shadows */
+.card--shadow-xs {
+  box-shadow: var(--shadow-xs);
+}
+
+.card--shadow-sm {
+  box-shadow: var(--shadow-sm);
+}
+
+.card--shadow-md {
+  box-shadow: var(--shadow-md);
+}
+
+.card--shadow-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+.card--shadow-xl {
+  box-shadow: var(--shadow-xl);
+}
+
+/* Hover effects */
+.card--hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.card--interactive:hover {
+  border-color: var(--color-primary);
+}
+
+.card--interactive:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Card sections */
+.card__header {
+  padding: var(--space-4) var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: var(--space-4);
+}
+
+.card__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.card__subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0 0;
+}
+
+.card__body {
+  flex: 1;
+}
+
+.card__footer {
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--color-border-light);
+  margin-top: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .card--padding-lg {
+    padding: var(--space-4);
+  }
+  
+  .card--padding-xl {
+    padding: var(--space-6);
+  }
+  
+  .card__header,
+  .card__footer {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+}

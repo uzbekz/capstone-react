@@ -139,7 +139,7 @@
 .timeline-date {
   display: block;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 10px;
   color: #94a3b8;
   font-weight: 500;
 }
@@ -148,6 +148,10 @@
   max-width: 420px;
   margin-left: auto;
   margin-right: auto;
+}
+
+.timeline-cancelled .timeline-connector {
+  background: #2563eb;
 }
 
 .timeline-connector {

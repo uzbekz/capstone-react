@@ -5,6 +5,16 @@ import { deleteProduct, getAppSettings, getProducts, updateProduct } from "../ap
 import loadingGif from "../assets/loading.gif";
 import { useSnackbar } from "../components/SnackbarProvider";
 
+// Helper function for Indian currency formatting
+function formatIndianPrice(price) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+}
+
 function MainPage({ setProductId, categories, products, setProducts }) {
   const navigate = useNavigate();
 
@@ -308,7 +318,7 @@ function MainPage({ setProductId, categories, products, setProducts }) {
 
                   <div className="product-details">
                     <p>Category: {product.category}</p>
-                    <p className="product-price">Price: Rs {product.price}</p>
+                    <p className="product-price">Price: {formatIndianPrice(Number(product.price))}</p>
                     <p className={restockedProducts[product.id] ? "qty-restocked" : ""}>
                       Qty: {product.quantity}
                       {Number(product.reserved_quantity) > 0 && (

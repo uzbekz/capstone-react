@@ -5,6 +5,16 @@ import { getWishlist, removeWishlistItem } from "../api";
 import loadingGif from "../assets/loading.gif";
 import { useSnackbar } from "../components/SnackbarProvider";
 
+// Helper function for Indian currency formatting
+function formatIndianPrice(price) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+}
+
 function Wishlist() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -60,7 +70,7 @@ function Wishlist() {
     <div className="wishlist-page">
       <h1>Wishlist</h1>
       {items.length === 0 ? (
-        <p className="wishlist-empty">No saved items yet. Add hearts from the shop.</p>
+        <p className="wishlist-empty">No saved items yet. Add hearts from the products page.</p>
       ) : (
         <div className="wishlist-grid">
           {items.map((p) => (
@@ -72,7 +82,8 @@ function Wishlist() {
               )}
               <div className="wishlist-card-body">
                 <h3>{p.name}</h3>
-                <p className="wishlist-price">₹{Number(p.price).toFixed(2)}</p>
+                <p className="wishlist-price">{formatIndianPrice(Number(p.price))}</p>
+                <p>Start browsing products to see your wishlist here!</p>
                 <button type="button" className="wishlist-remove" onClick={() => remove(p.id)}>
                   Remove
                 </button>

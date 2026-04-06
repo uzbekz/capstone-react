@@ -2,8 +2,18 @@ import "./OrderDetails.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getOrderDetails, cancelOrderRequest, returnOrderRequest } from "../api";
-import loadingGif from "../assets/loading.gif";
 import { useSnackbar } from "../components/SnackbarProvider";
+import loadingGif from "../assets/loading.gif";
+
+// Helper function for Indian currency formatting
+function formatIndianPrice(price) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+}
 
 const DEFAULT_RETURN_WINDOW_DAYS = 7;
 
@@ -113,22 +123,7 @@ function OrderDetails() {
 
   const renderTimeline = () => {
     if (order.status === "cancelled") {
-      return (
-        <div className="timeline timeline-cancelled">
-          <div className="timeline-step active current">
-            <div className="timeline-dot" />
-            <span className="timeline-label">Placed</span>
-            <small className="timeline-date">
-              {new Date(order.createdAt || order.created_at).toLocaleString()}
-            </small>
-          </div>
-          <div className="timeline-connector active" />
-          <div className="timeline-step active current">
-            <div className="timeline-dot" />
-            <span className="timeline-label">Cancelled</span>
-          </div>
-        </div>
-      );
+      return null; // Don't show timeline for cancelled orders
     }
 
     const steps = [
@@ -220,11 +215,11 @@ function OrderDetails() {
           </div>
           <div className="order-total-card">
             <p className="meta-label">Total Amount</p>
-            <p className="total">Rs {Number(order.total_price).toFixed(2)}</p>
+            <p className="total">{formatIndianPrice(Number(order.total_price))}</p>
             {order.coupon_code && Number(order.discount_amount) > 0 && (
               <p className="meta-text">
-                Coupon <strong>{order.coupon_code}</strong> saved Rs{" "}
-                {Number(order.discount_amount).toFixed(2)}
+                Coupon <strong>{order.coupon_code}</strong> saved {formatIndianPrice(Number(order.discount_amount))}
+                {formatIndianPrice(Number(order.discount_amount))}
               </p>
             )}
             <p className="meta-text">
@@ -232,8 +227,6 @@ function OrderDetails() {
             </p>
           </div>
         </div>
-
-        {renderTimeline()}
 
         {(order.ship_line1 || order.ship_city) && (
           <div className="shipping-banner">
@@ -294,11 +287,13 @@ function OrderDetails() {
                   <p className="item-name">{item.Product.name}</p>
                   <p className="item-qty">Qty {item.quantity}</p>
                 </div>
-                <p className="item-price">Rs {Number(item.price).toFixed(2)}</p>
+                <p className="item-price">{formatIndianPrice(Number(item.price))}</p>
               </div>
             ))}
           </div>
         </div>
+
+        {renderTimeline()}
 
         <div className="details-actions">
           {order.status === "pending" && (

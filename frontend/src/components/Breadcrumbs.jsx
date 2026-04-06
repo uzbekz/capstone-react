@@ -35,17 +35,17 @@ const breadcrumbMap = {
     { label: "Users", to: "/adminUsers" },
     { label: "Approvals" },
   ],
-  "/customerProducts": [{ label: "Shop" }],
+  "/customerProducts": [{ label: "Products" }],
   "/cart": [
-    { label: "Shop", to: "/customerProducts" },
+    { label: "Products", to: "/customerProducts" },
     { label: "Cart" },
   ],
   "/customerOrders": [
-    { label: "Shop", to: "/customerProducts" },
+    { label: "Products", to: "/customerProducts" },
     { label: "My Orders" },
   ],
   "/profile": [
-    { label: "Shop", to: "/customerProducts" },
+    { label: "Products", to: "/customerProducts" },
     { label: "Profile" },
   ],
 };
@@ -63,7 +63,7 @@ function Breadcrumbs() {
     breadcrumbMap[location.pathname] ||
     (location.pathname.startsWith("/order/")
       ? [
-          { label: "Shop", to: "/customerProducts" },
+          { label: "Products", to: "/customerProducts" },
           { label: "My Orders", to: "/customerOrders" },
           { label: `Order #${orderId || "Details"}` },
         ]

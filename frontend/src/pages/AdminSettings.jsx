@@ -37,8 +37,8 @@ const fieldConfig = [
     suffix: "units"
   },
   {
-    key: "max_cart_quantity",
-    label: "Max Cart Quantity",
+    key: "max_product_quantity",
+    label: "Max Product Quantity",
     description: "Maximum units of a single product a customer can keep in cart.",
     suffix: "units"
   }
@@ -143,8 +143,8 @@ function AdminSettings() {
             <strong>{values.low_stock_threshold} units</strong>
           </article>
           <article className="settings-summary-card">
-            <span>Cart Limit</span>
-            <strong>{values.max_cart_quantity} units</strong>
+            <span>Product Limit</span>
+            <strong>{values.max_product_quantity} units</strong>
           </article>
         </section>
 

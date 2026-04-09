@@ -227,8 +227,8 @@ export async function getPublicSettings() {
   return request("/public-settings");
 }
 
-export async function getAllOrders() {
-  return request("/orders/all");
+export async function getAllOrders(page = 1, limit = 20) {
+  return request(`/orders/all?page=${page}&limit=${limit}`);
 }
 
 export async function dispatchOrderRequest(orderId) {

@@ -32,13 +32,18 @@ function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [filterMode, setFilterMode] = useState("today");
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const { showSnackbar } = useSnackbar();
+  const LIMIT = 20;
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (pageNum = 1) => {
     setLoading(true);
     try {
-      const data = await getAllOrders();
-      setOrders(data);
+      const data = await getAllOrders(pageNum, LIMIT);
+      setOrders(data.data);
+      setPagination({ total: data.pagination.total, totalPages: data.pagination.totalPages });
+      setPage(pageNum);
     } catch (err) {
       console.error(err);
       showSnackbar("Unable to load orders.", "error");
@@ -49,7 +54,7 @@ function AdminOrders() {
   }, [navigate]);
 
   useEffect(() => {
-    loadOrders();
+    loadOrders(1);
   }, [loadOrders]);
 
   const filteredOrders = orders.filter((order) => {
@@ -87,7 +92,7 @@ function AdminOrders() {
       setLoading(true);
       const data = await dispatchOrderRequest(id);
       showSnackbar(data.message || "Order dispatched successfully.", "success");
-      await loadOrders();
+      await loadOrders(page);
     } catch (err) {
       showSnackbar(err.message || "Failed to dispatch order", "error");
       setLoading(false);
@@ -101,7 +106,7 @@ function AdminOrders() {
       setLoading(true);
       const data = await cancelOrderRequest(id, note.trim());
       showSnackbar(data.message || "Order cancelled successfully.", "success");
-      await loadOrders();
+      await loadOrders(page);
     } catch (err) {
       showSnackbar(err.message || "Failed to cancel order", "error");
       console.error(err.message || "Failed to cancel order");
@@ -132,7 +137,7 @@ function AdminOrders() {
         data.message || `Dispatched ${d}, cancelled ${c} (insufficient stock).`,
         c > 0 ? "warning" : "success"
       );
-      await loadOrders();
+      await loadOrders(1);
     } catch (err) {
       showSnackbar(err.message || "Bulk dispatch failed", "error");
       setLoading(false);
@@ -159,7 +164,7 @@ function AdminOrders() {
         data.message || (n === 0 ? "No orders were cancelled." : `Cancelled ${n} order(s).`),
         n === 0 ? "warning" : "success"
       );
-      await loadOrders();
+      await loadOrders(1);
     } catch (err) {
       showSnackbar(err.message || "Bulk cancel failed", "error");
       setLoading(false);
@@ -307,6 +312,26 @@ function AdminOrders() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {!loading && pagination.totalPages > 1 && (
+        <div className="pagination">
+          <button
+            className="page-btn"
+            onClick={() => loadOrders(page - 1)}
+            disabled={page <= 1}
+          >
+            ← Prev
+          </button>
+          <span className="page-info">Page {page} of {pagination.totalPages} ({pagination.total} orders)</span>
+          <button
+            className="page-btn"
+            onClick={() => loadOrders(page + 1)}
+            disabled={page >= pagination.totalPages}
+          >
+            Next →
+          </button>
         </div>
       )}
     </div>

@@ -127,6 +127,8 @@ function serializeOrderWithReturnMeta(order) {
 }
 
 // associations
+Order.hasMany(OrderItem, { foreignKey: "order_id" });
+OrderItem.belongsTo(Order, { foreignKey: "order_id" });
 OrderItem.belongsTo(Product, { foreignKey: "product_id" });
 
 // cart associations (already defined in model file too, but ensure here for sync.)
@@ -632,31 +634,43 @@ app.get(
   authorize("product_manager"),
   async (req, res) => {
     try {
-      const orders = await Order.findAll({
-        order: [["created_at", "DESC"]]
-      });
-      const returnWindowDays = await getNumericSetting("return_window_days");
+      const page = Math.max(1, parseInt(req.query.page) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+      const offset = (page - 1) * limit;
 
-      const result = [];
-
-      for (const order of orders) {
-        const items = await OrderItem.findAll({
-          where: { order_id: order.id },
+      const [{ count, rows: orders }, returnWindowDays] = await Promise.all([
+        Order.findAndCountAll({
+          order: [["created_at", "DESC"]],
+          limit,
+          offset,
           include: [
-            { model: Product, attributes: ["name", "quantity", "image"] }
+            {
+              model: OrderItem,
+              as: "OrderItems",
+              include: [{ model: Product, attributes: ["name", "quantity", "image"] }]
+            }
           ]
-        });
+        }),
+        getNumericSetting("return_window_days")
+      ]);
 
-        result.push({
-          ...serializeOrderWithReturnMeta({
-            ...order.toJSON(),
-            return_window_days: returnWindowDays
-          }),
-          items
-        });
-      }
+      const result = orders.map(order => ({
+        ...serializeOrderWithReturnMeta({
+          ...order.toJSON(),
+          return_window_days: returnWindowDays
+        }),
+        items: order.OrderItems
+      }));
 
-      res.json(result);
+      res.json({
+        data: result,
+        pagination: {
+          total: count,
+          page,
+          limit,
+          totalPages: Math.ceil(count / limit)
+        }
+      });
 
     } catch (err) {
       res.status(500).json({ error: err.message });

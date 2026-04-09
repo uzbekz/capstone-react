@@ -50,7 +50,9 @@ function App() {
         <Route path ="/addProduct" element={<AddProduct productId={productId} setProductId={setProductId} categories={categories} setCategories={setCategories}/>} />
         <Route path='/dashboard' element={<Dashboard products={products} setProducts={setProducts}/>}/>
         <Route path='/adminSettings' element={<AdminSettings />}/>
-        <Route path='/adminOrders' element={<AdminOrders />}/>
+        <Route path='/adminOrders' element={<Navigate to="/adminOrders/pending" replace />}/>
+        <Route path='/adminOrders/pending' element={<AdminOrders />}/>
+        <Route path='/adminOrders/history' element={<AdminOrders />}/>
         <Route path='/customerProducts' element={<CustomerProducts products={products} setProducts={setProducts} categories={categories}/>}/>
         <Route path="/cart" element={<Cart />}/>
         <Route path="/customerOrders" element={<CustomerOrders />}/>

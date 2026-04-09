@@ -129,6 +129,7 @@ function serializeOrderWithReturnMeta(order) {
 Order.hasMany(OrderItem, { foreignKey: "order_id" });
 OrderItem.belongsTo(Order, { foreignKey: "order_id" });
 OrderItem.belongsTo(Product, { foreignKey: "product_id" });
+Order.belongsTo(User, { foreignKey: "customer_id" });
 
 // cart associations (already defined in model file too, but ensure here for sync.)
 User.hasMany(Cart, { foreignKey: "user_id" });
@@ -600,12 +601,41 @@ app.get(
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
       const offset = (page - 1) * limit;
 
+      // date range filter: dateFrom and dateTo as "YYYY-MM-DD"
+      const dateFrom  = req.query.dateFrom;
+      const dateTo    = req.query.dateTo;
+      const statusParam = req.query.status;
+      const emailParam  = req.query.email;
+      const whereClause = {};
+
+      if (statusParam) {
+        const statuses = statusParam.split(",").map(s => s.trim()).filter(Boolean);
+        whereClause.status = statuses.length === 1 ? statuses[0] : { [Op.in]: statuses };
+      }
+
+      if (dateFrom || dateTo) {
+        const start = dateFrom ? new Date(`${dateFrom}T00:00:00.000Z`) : new Date(0);
+        const end   = dateTo   ? new Date(`${dateTo}T23:59:59.999Z`)   : new Date();
+        whereClause.created_at = { [Op.between]: [start, end] };
+      }
+
+      // email filter applied on the User include
+      const userWhere = emailParam
+        ? { email: { [Op.like]: `%${emailParam}%` } }
+        : undefined;
+
       const [{ count, rows: orders }, returnWindowDays] = await Promise.all([
         Order.findAndCountAll({
+          where: whereClause,
           order: [["created_at", "DESC"]],
           limit,
           offset,
           include: [
+            {
+              model: User,
+              attributes: ["email"],
+              ...(userWhere ? { where: userWhere } : {})
+            },
             {
               model: OrderItem,
               as: "OrderItems",
@@ -621,6 +651,7 @@ app.get(
           ...order.toJSON(),
           return_window_days: returnWindowDays
         }),
+        customer_email: order.User?.email ?? null,
         items: order.OrderItems
       }));
 

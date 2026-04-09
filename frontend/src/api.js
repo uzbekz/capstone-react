@@ -226,8 +226,13 @@ export async function getPublicSettings() {
   return request("/public-settings");
 }
 
-export async function getAllOrders(page = 1, limit = 20) {
-  return request(`/orders/all?page=${page}&limit=${limit}`);
+export async function getAllOrders(page = 1, limit = 20, dateFrom = null, dateTo = null, status = null, email = null) {
+  const params = new URLSearchParams({ page, limit });
+  if (dateFrom) params.append("dateFrom", dateFrom);
+  if (dateTo)   params.append("dateTo", dateTo);
+  if (status)   params.append("status", status);
+  if (email)    params.append("email", email);
+  return request(`/orders/all?${params.toString()}`);
 }
 
 export async function dispatchOrderRequest(orderId) {

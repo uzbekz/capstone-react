@@ -10,6 +10,8 @@ const productManagerPaths = new Set([
   "/dashboard",
   "/adminSettings",
   "/adminOrders",
+  "/adminOrders/pending",
+  "/adminOrders/history",
   "/adminUsers",
   "/adminUsers/approvals",
   "/adminApprovals",
@@ -100,7 +102,8 @@ function AppHeader() {
             const isActive =
               location.pathname === item.to ||
               (item.to === "/customerOrders" && location.pathname.startsWith("/order/")) ||
-              (item.to === "/adminUsers" && location.pathname.startsWith("/adminUsers"));
+              (item.to === "/adminUsers" && location.pathname.startsWith("/adminUsers")) ||
+              (item.to === "/adminOrders" && location.pathname.startsWith("/adminOrders"));
 
             return (
               <Link

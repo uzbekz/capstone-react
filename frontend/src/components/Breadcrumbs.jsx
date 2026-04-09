@@ -21,6 +21,16 @@ const breadcrumbMap = {
     { label: "Products", to: "/mainPage" },
     { label: "Manage Orders" },
   ],
+  "/adminOrders/pending": [
+    { label: "Products", to: "/mainPage" },
+    { label: "Manage Orders", to: "/adminOrders/pending" },
+    { label: "Pending" },
+  ],
+  "/adminOrders/history": [
+    { label: "Products", to: "/mainPage" },
+    { label: "Manage Orders", to: "/adminOrders/pending" },
+    { label: "History" },
+  ],
   "/adminUsers": [
     { label: "Products", to: "/mainPage" },
     { label: "Users" },

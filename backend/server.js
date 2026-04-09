@@ -630,6 +630,7 @@ app.get(
           order: [["created_at", "DESC"]],
           limit,
           offset,
+          subQuery: false,
           include: [
             {
               model: User,
@@ -639,7 +640,8 @@ app.get(
             {
               model: OrderItem,
               as: "OrderItems",
-              include: [{ model: Product, attributes: ["name", "quantity", "image"] }]
+              // skip image BLOB — history table doesn't render product images
+              include: [{ model: Product, attributes: ["name"] }]
             }
           ]
         }),

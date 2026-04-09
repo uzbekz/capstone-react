@@ -350,7 +350,6 @@ function OrderHistory() {
                       <div className="order-items-mini">
                         {order.items?.map((item) => (
                           <div key={item.id} className="order-item-mini">
-                            <img src={convertToBase64(item.Product?.image)} alt={item.Product?.name} />
                             <span>{item.Product?.name} × {item.quantity}</span>
                           </div>
                         ))}

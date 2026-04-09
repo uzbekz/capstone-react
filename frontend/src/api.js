@@ -210,7 +210,6 @@ export async function createOrder(items, options = {}) {
     headers,
     body: JSON.stringify({
       items,
-      coupon_code: options.coupon_code || undefined,
       ship_line1: options.ship_line1,
       ship_city: options.ship_city,
       ship_postal: options.ship_postal,

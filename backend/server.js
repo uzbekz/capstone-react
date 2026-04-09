@@ -16,7 +16,6 @@ import Cart from "./models/Cart.js";
 import AppSetting from "./models/AppSetting.js";
 import AuditLog from "./models/AuditLog.js";
 import WishlistItem from "./models/WishlistItem.js";
-import Coupon from "./models/Coupon.js";
 import { Op, Transaction } from "sequelize";
 import { hashToken } from './middleware/auth.js';
 import { writeAudit } from "./lib/auditLog.js";
@@ -277,17 +276,6 @@ sequelize.sync(syncOptions)
         .map(([key, value]) => AppSetting.create({ key, value: String(value) }))
     );
 
-    const existingCoupon = await Coupon.findOne({ where: { code: "WELCOME10" } });
-    if (!existingCoupon) {
-      await Coupon.create({
-        code: "WELCOME10",
-        discount_percent: 10,
-        active: true,
-        max_uses: null
-      });
-      console.log("Seeded default coupon WELCOME10");
-    }
-
     const pendingList = await Order.findAll({ where: { status: "pending" } });
     const reservedByProduct = new Map();
     for (const o of pendingList) {
@@ -435,7 +423,7 @@ app.post(
   authorize("customer"),
   async (req, res) => {
     try {
-      const { items, coupon_code, ship_line1, ship_city, ship_postal, ship_country } =
+      const { items, ship_line1, ship_city, ship_postal, ship_country } =
         req.body || {};
       const customerId = req.user.id;
       const idemKey = (req.get("Idempotency-Key") || "").trim();
@@ -481,27 +469,8 @@ app.post(
         });
       }
 
-      let discountAmount = 0;
-      let appliedCouponCode = null;
-      let couponToRedeem = null;
-      const rawCoupon = typeof coupon_code === "string" ? coupon_code.trim().toUpperCase() : "";
-      if (rawCoupon) {
-        const coupon = await Coupon.findOne({ where: { code: rawCoupon, active: true } });
-        if (
-          coupon &&
-          (!coupon.expires_at || new Date(coupon.expires_at) > new Date()) &&
-          (coupon.max_uses == null || coupon.uses_count < coupon.max_uses)
-        ) {
-          discountAmount = Math.min(
-            subtotal,
-            (subtotal * Number(coupon.discount_percent)) / 100
-          );
-          appliedCouponCode = coupon.code;
-          couponToRedeem = coupon;
-        }
-      }
-
-      const total = Math.max(0, subtotal - discountAmount);
+      const SHIPPING_CHARGE = 49;
+      const total = subtotal + SHIPPING_CHARGE;
 
       let createdOrder = null;
       const t = await sequelize.transaction();
@@ -516,8 +485,8 @@ app.post(
             customer_id: customerId,
             total_price: total,
             idempotency_key: idemKey || null,
-            coupon_code: appliedCouponCode,
-            discount_amount: discountAmount,
+            coupon_code: null,
+            discount_amount: 0,
             ship_line1: ship1,
             ship_city: shipCi,
             ship_postal: shipPo,
@@ -534,13 +503,6 @@ app.post(
               quantity: line.quantity,
               price: line.price
             },
-            { transaction: t }
-          );
-        }
-
-        if (couponToRedeem) {
-          await couponToRedeem.update(
-            { uses_count: couponToRedeem.uses_count + 1 },
             { transaction: t }
           );
         }
@@ -1646,9 +1608,6 @@ app.get(
       const cancelledLast30Days = await Order.count({
         where: { status: "cancelled", created_at: { [Op.gte]: thirtyDaysAgo } }
       });
-      const ordersWithCoupon = await Order.count({
-        where: { coupon_code: { [Op.ne]: null } }
-      });
 
       res.json({
         revenueByMonth,
@@ -1658,8 +1617,7 @@ app.get(
         funnel: {
           pendingOrders,
           ordersLast7Days,
-          cancelledLast30Days,
-          ordersWithCoupon
+          cancelledLast30Days
         }
       });
     } catch (err) {
@@ -1704,7 +1662,7 @@ app.get(
     try {
       const orders = await Order.findAll({ order: [["created_at", "DESC"]], limit: 5000 });
       const lines = [
-        "id,customer_id,status,total_price,coupon_code,discount_amount,created_at"
+        "id,customer_id,status,total_price,created_at"
       ];
       for (const o of orders) {
         const row = o.toJSON();
@@ -1714,8 +1672,6 @@ app.get(
             row.customer_id,
             row.status,
             row.total_price,
-            row.coupon_code || "",
-            row.discount_amount ?? 0,
             row.created_at
           ].join(",")
         );

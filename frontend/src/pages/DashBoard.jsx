@@ -374,10 +374,6 @@ function Dashboard() {
             <span>Cancelled (30 days)</span>
             <strong>{reports.funnel.cancelledLast30Days ?? "—"}</strong>
           </article>
-          <article className="dashboard-stat-card">
-            <span>Orders with coupon</span>
-            <strong>{reports.funnel.ordersWithCoupon ?? "—"}</strong>
-          </article>
         </section>
       )}
 

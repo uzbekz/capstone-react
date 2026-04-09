@@ -287,11 +287,6 @@ function AdminOrders() {
                       {new Date(order.createdAt || order.created_at).toLocaleString()}
                     </strong>
                   </p>
-                  {order.coupon_code && (
-                    <p>
-                      <span>Coupon:</span> <strong>{order.coupon_code}</strong>
-                    </p>
-                  )}
                   {order.internal_cancel_note && (
                     <p className="order-internal-note">
                       <span>Internal note:</span> {order.internal_cancel_note}

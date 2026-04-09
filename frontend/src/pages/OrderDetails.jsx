@@ -216,12 +216,7 @@ function OrderDetails() {
           <div className="order-total-card">
             <p className="meta-label">Total Amount</p>
             <p className="total">{formatIndianPrice(Number(order.total_price))}</p>
-            {order.coupon_code && Number(order.discount_amount) > 0 && (
-              <p className="meta-text">
-                Coupon <strong>{order.coupon_code}</strong> saved {formatIndianPrice(Number(order.discount_amount))}
-                {formatIndianPrice(Number(order.discount_amount))}
-              </p>
-            )}
+            <p className="meta-text">Includes ₹49 shipping</p>
             <p className="meta-text">
               Placed on {new Date(order.createdAt || order.created_at).toLocaleString()}
             </p>

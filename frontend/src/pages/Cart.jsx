@@ -1,5 +1,5 @@
 import "./Cart.css";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getCart,
@@ -19,6 +19,7 @@ function Cart() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const { showSnackbar } = useSnackbar();
+  const debounceTimers = useRef({});
 
 // Helper function for Indian currency formatting
 function formatIndianPrice(price) {
@@ -71,28 +72,37 @@ function formatIndianPrice(price) {
     return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   }, [cart]);
 
-  async function updateQty(index, qty) {
-    const item = cart[index];
-    try {
-      setActionLoading(true);
-      const data = await updateCartItem(item.cartItemId, Number(qty));
-      if (data.message && !data.id) {
-        showSnackbar(data.message || "Could not update quantity", "error");
-        console.error(data.message || "Could not update quantity");
-      } else {
-        setCart((prev) =>
-          prev.map((currentItem, itemIndex) =>
-            itemIndex === index ? { ...currentItem, qty: Number(qty) } : currentItem,
-          ),
-        );
+  async function updateQty(index, rawValue) {
+    // Update local state immediately so the input feels responsive
+    setCart((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, qty: rawValue } : item))
+    );
+
+    const parsed = parseInt(rawValue, 10);
+    // Don't fire the API if the field is empty or invalid — wait for the user to finish typing
+    if (!rawValue || isNaN(parsed) || parsed < 1) return;
+
+    const cartItemId = cart[index].cartItemId;
+
+    // Debounce: clear any pending call for this item and wait 600ms
+    clearTimeout(debounceTimers.current[cartItemId]);
+    debounceTimers.current[cartItemId] = setTimeout(async () => {
+      try {
+        setActionLoading(true);
+        const data = await updateCartItem(cartItemId, parsed);
+        if (data.message && !data.id) {
+          showSnackbar(data.message || "Could not update quantity", "error");
+          // Revert to last known good value from server
+          await fetchCart();
+        }
+      } catch (err) {
+        showSnackbar("Network error while updating your cart", "error");
+        console.error(err);
+        await fetchCart();
+      } finally {
+        setActionLoading(false);
       }
-    } catch (err) {
-      showSnackbar("Network error while updating your cart", "error");
-      console.error(err);
-      console.error("Network error");
-    } finally {
-      setActionLoading(false);
-    }
+    }, 600);
   }
 
   async function removeItem(index) {
@@ -137,9 +147,16 @@ function formatIndianPrice(price) {
       return;
     }
 
+    const invalidItems = cart.filter((item) => !item.qty || parseInt(item.qty, 10) < 1);
+    if (invalidItems.length > 0) {
+      const names = invalidItems.map((i) => i.name).join(", ");
+      showSnackbar(`Fix quantity for: ${names}`, "error");
+      return;
+    }
+
     const items = cart.map((item) => ({
       product_id: item.id,
-      quantity: item.qty,
+      quantity: parseInt(item.qty, 10),
     }));
 
     try {

@@ -23,14 +23,6 @@ function getYearStart() {
   return `${new Date().getFullYear()}-01-01`;
 }
 
-function convertToBase64(buffer) {
-  if (!buffer) return "";
-  const bytes = new Uint8Array(buffer.data);
-  let binary = "";
-  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-  return `data:image/jpeg;base64,${btoa(binary)}`;
-}
-
 // ─── Pending Tab ─────────────────────────────────────────────────────────────
 
 function PendingOrders() {
@@ -175,7 +167,6 @@ function PendingOrders() {
                       <div className="order-items-mini">
                         {order.items?.map((item) => (
                           <div key={item.id} className="order-item-mini">
-                            <img src={convertToBase64(item.Product?.image)} alt={item.Product?.name} />
                             <span>{item.Product?.name} × {item.quantity}</span>
                           </div>
                         ))}

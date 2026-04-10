@@ -631,6 +631,8 @@ app.get(
           limit,
           offset,
           subQuery: false,
+          distinct: true,
+          col: "id",
           include: [
             {
               model: User,

@@ -27,6 +27,16 @@ function OrderDetails() {
   const { showSnackbar } = useSnackbar();
   const previousStatusRef = useRef(null);
 
+  // Derive shipping charge from order data: total - items subtotal
+  function getShippingCharge(currentOrder) {
+    if (!currentOrder?.items?.length) return null;
+    const subtotal = currentOrder.items.reduce(
+      (sum, item) => sum + Number(item.price) * item.quantity, 0
+    );
+    const shipping = Number(currentOrder.total_price) - subtotal;
+    return shipping > 0 ? shipping : null;
+  }
+
   function getReturnDeadline(currentOrder) {
     if (!currentOrder?.delivered_at) return null;
     if (currentOrder.return_deadline) return new Date(currentOrder.return_deadline);
@@ -216,7 +226,9 @@ function OrderDetails() {
           <div className="order-total-card">
             <p className="meta-label">Total Amount</p>
             <p className="total">{formatIndianPrice(Number(order.total_price))}</p>
-            <p className="meta-text">Includes ₹49 shipping</p>
+            {getShippingCharge(order) !== null && (
+              <p className="meta-text">Includes {formatIndianPrice(getShippingCharge(order))} shipping</p>
+            )}
             <p className="meta-text">
               Placed on {new Date(order.createdAt || order.created_at).toLocaleString()}
             </p>

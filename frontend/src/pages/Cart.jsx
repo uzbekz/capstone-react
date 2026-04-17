@@ -7,6 +7,7 @@ import {
   removeCartItem,
   clearCartRequest,
   createOrder,
+  getPublicSettings,
 } from "../api";
 import { useSnackbar } from "../components/SnackbarProvider";
 import loadingGif from "../assets/loading.gif";
@@ -17,6 +18,8 @@ function Cart() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [shippingCharge, setShippingCharge] = useState(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
   const { showSnackbar } = useSnackbar();
   const debounceTimers = useRef({});
 
@@ -65,6 +68,14 @@ function formatIndianPrice(price) {
 
   useEffect(() => {
     fetchCart().catch(() => navigate("/"));
+    getPublicSettings()
+      .then((s) => {
+        setShippingCharge(s?.shipping_charge != null ? Number(s.shipping_charge) : 0);
+      })
+      .catch(() => {
+        setShippingCharge(0); // fallback if settings unreachable, avoiding hardcoded values
+      })
+      .finally(() => setSettingsLoading(false));
   }, [navigate, fetchCart]);
 
   const totalPrice = useMemo(() => {
@@ -264,17 +275,23 @@ function formatIndianPrice(price) {
                     </div>
                     <div className="summary-row">
                       <span className="summary-label">Shipping:</span>
-                      <span className="summary-value">{formatIndianPrice(49)}</span>
+                      <span className="summary-value">
+                        {settingsLoading ? "Loading..." : formatIndianPrice(shippingCharge)}
+                      </span>
                     </div>
                   </div>
 
                   <div className="summary-total">
                     <span>Total</span>
-                    <span className="summary-value">{formatIndianPrice(totalPrice + 49)}</span>
+                    <span className="summary-value">
+                      {settingsLoading
+                        ? "Calculating..."
+                        : formatIndianPrice(totalPrice + shippingCharge)}
+                    </span>
                   </div>
 
-                  <button className="btn-checkout" onClick={checkout}>
-                    Checkout
+                  <button className="btn-checkout" onClick={checkout} disabled={settingsLoading}>
+                    {settingsLoading ? "Loading..." : "Checkout"}
                   </button>
                   <button className="btn-clear" onClick={clearCart}>
                     Clear Cart

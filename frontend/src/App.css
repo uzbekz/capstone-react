@@ -25,6 +25,11 @@
   --color-primary-light: #f0fdfa;
   --color-primary-medium: #14b8a6;
   
+  /* Accent Colors */
+  --color-accent: #2e7d9a;
+  --color-accent-strong: #1a5b73;
+  --color-accent-soft: rgba(46, 125, 154, 0.1);
+  
   /* Semantic Colors */
   --color-success: #059669;
   --color-success-light: #ecfdf5;

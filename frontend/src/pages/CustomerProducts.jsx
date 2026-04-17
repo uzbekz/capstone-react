@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getProducts,
-  getAppSettings,
   getCart,
   addToCartRequest,
   updateCartItem,
@@ -49,8 +48,8 @@ function formatIndianPrice(price) {
         const settingsData = await getPublicSettings();
         setSettings(settingsData);
       } catch (error) {
-        console.log('Settings not available, using defaults');
-        setSettings({ max_product_quantity: 10 });
+        console.warn('Settings not available:', error.message);
+        setSettings(null);
       }
       
       setLoading(false);
@@ -150,7 +149,7 @@ function formatIndianPrice(price) {
   async function addToCart(product, qty) {
     const currentEntry = cartByProductRef.current[product.id];
     const currentQty = currentEntry?.quantity || 0;
-    const maxProductQuantity = settings?.max_product_quantity || 10;
+    const maxProductQuantity = settings?.max_product_quantity || Infinity;
     
     // Check if adding this quantity would exceed the admin limit
     if (currentQty + qty > maxProductQuantity) {
@@ -331,6 +330,7 @@ function formatIndianPrice(price) {
           filteredProducts.map((product) => {
             const cartQty = cartByProduct[product.id]?.quantity || 0;
             const avail = sellable(product);
+            const maxProductQuantity = settings?.max_product_quantity || Infinity;
 
             return (
               <div key={product.id} className="product-card">
@@ -362,13 +362,15 @@ function formatIndianPrice(price) {
                       type="button"
                       className="bulk-qty-btn"
                       onClick={() => {
-                        const maxProductQuantity = settings?.max_product_quantity || 10;
                         const currentQty = cartQty;
                         const availableToAdd = Math.min(10, Math.max(0, avail - cartQty));
                         const allowedByAdmin = Math.max(0, maxProductQuantity - currentQty);
                         const qtyToAdd = Math.min(availableToAdd, allowedByAdmin);
                         
                         if (qtyToAdd > 0) {
+                          if (qtyToAdd < 10) {
+                            showSnackbar(`Only ${qtyToAdd} unit(s) added (limit: ${maxProductQuantity} per product).`, "warning");
+                          }
                           addToCart(product, qtyToAdd);
                         } else if (allowedByAdmin <= 0) {
                           showSnackbar(`Cannot add more. Product limit: ${maxProductQuantity} units per product`, "error");
@@ -378,7 +380,7 @@ function formatIndianPrice(price) {
                           showSnackbar(`Can only add ${qtyToAdd} units (limit: ${maxProductQuantity})`, "warning");
                         }
                       }}
-                      disabled={cartQty >= (settings?.max_product_quantity || 10) || avail - cartQty < 1}
+                      disabled={cartQty >= maxProductQuantity || avail - cartQty < 1}
                       title="Add 10 items"
                     >
                       +10
@@ -387,13 +389,15 @@ function formatIndianPrice(price) {
                       type="button"
                       className="bulk-qty-btn"
                       onClick={() => {
-                        const maxProductQuantity = settings?.max_product_quantity || 10;
                         const currentQty = cartQty;
                         const availableToAdd = Math.min(25, Math.max(0, avail - cartQty));
                         const allowedByAdmin = Math.max(0, maxProductQuantity - currentQty);
                         const qtyToAdd = Math.min(availableToAdd, allowedByAdmin);
                         
                         if (qtyToAdd > 0) {
+                          if (qtyToAdd < 25) {
+                            showSnackbar(`Only ${qtyToAdd} unit(s) added — cart limited to ${maxProductQuantity} per product.`, "warning");
+                          }
                           addToCart(product, qtyToAdd);
                         } else if (allowedByAdmin <= 0) {
                           showSnackbar(`Cannot add more. Product limit: ${maxProductQuantity} units per product`, "error");
@@ -403,7 +407,7 @@ function formatIndianPrice(price) {
                           showSnackbar(`Can only add ${qtyToAdd} units (limit: ${maxProductQuantity})`, "warning");
                         }
                       }}
-                      disabled={cartQty >= (settings?.max_product_quantity || 10) || avail - cartQty < 1}
+                      disabled={cartQty >= maxProductQuantity || avail - cartQty < 1}
                       title="Add 25 items"
                     >
                       +25
@@ -446,7 +450,7 @@ function formatIndianPrice(price) {
                             String(Math.min(Math.max(1, n), maxAdd)),
                           );
                         }}
-                        disabled={cartQty >= (settings?.max_product_quantity || 10) || avail - cartQty < 1}
+                        disabled={cartQty >= maxProductQuantity || avail - cartQty < 1}
                       />
                       <button
                         type="button"

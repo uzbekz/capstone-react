@@ -41,6 +41,12 @@ const fieldConfig = [
     label: "Max Product Quantity",
     description: "Maximum units of a single product a customer can keep in cart.",
     suffix: "units"
+  },
+  {
+    key: "shipping_charge",
+    label: "Shipping Charge",
+    description: "Flat shipping fee added to every customer order at checkout.",
+    suffix: "₹"
   }
 ];
 
@@ -119,7 +125,7 @@ function AdminSettings() {
             <p className="admin-settings-kicker">Products &rsaquo; Settings</p>
             <h1>Admin Settings</h1>
             <p className="admin-settings-copy">
-              Manage the operational defaults that control deliveries, returns, stock alerts, and cart limits.
+              Manage the operational defaults that control deliveries, returns, stock alerts, cart limits, and shipping charges.
             </p>
           </div>
           <div className="admin-settings-account">

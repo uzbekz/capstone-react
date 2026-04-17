@@ -44,6 +44,15 @@ module.exports = {
         PORT: 5004,
         SQL_SYNC_ALTER: 'false'
       }
+    },
+    {
+      name: 'frontend',
+      script: 'npx',
+      args: 'serve -s dist -l 3000',
+      cwd: '../frontend',
+      env: {
+        NODE_ENV: 'production'
+      }
     }
   ]
 };

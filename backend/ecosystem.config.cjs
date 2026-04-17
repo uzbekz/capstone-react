@@ -5,7 +5,8 @@ module.exports = {
       script: './services/gateway.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 5000
+        PORT: 5000,
+        SQL_SYNC_ALTER: 'true'
       }
     },
     {
@@ -13,7 +14,8 @@ module.exports = {
       script: './services/auth.service.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 5001
+        PORT: 5001,
+        SQL_SYNC_ALTER: 'true'
       }
     },
     {
@@ -21,7 +23,8 @@ module.exports = {
       script: './services/product.service.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 5002
+        PORT: 5002,
+        SQL_SYNC_ALTER: 'true'
       }
     },
     {
@@ -29,7 +32,8 @@ module.exports = {
       script: './services/order.service.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 5003
+        PORT: 5003,
+        SQL_SYNC_ALTER: 'true'
       }
     },
     {
@@ -37,7 +41,8 @@ module.exports = {
       script: './services/user.service.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 5004
+        PORT: 5004,
+        SQL_SYNC_ALTER: 'true'
       }
     }
   ]

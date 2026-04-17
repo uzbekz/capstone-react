@@ -382,9 +382,10 @@ router.post("/login", async (req, res) => {
       expires_at: new Date()
     });
 
-    await issueSessionCookies(res, user, session);
+    const { accessToken } = await issueSessionCookies(res, user, session);
 
     res.json({
+      accessToken,
       role: user.role,
       id: user.id,
       email: user.email
@@ -427,9 +428,10 @@ router.post("/refresh", async (req, res) => {
     });
 
     await revokeSession(session, replacementSession.id);
-    await issueSessionCookies(res, user, replacementSession);
+    const { accessToken } = await issueSessionCookies(res, user, replacementSession);
 
     res.json({
+      accessToken,
       role: user.role,
       id: user.id,
       email: user.email

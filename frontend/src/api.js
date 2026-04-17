@@ -1,8 +1,23 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const ACCESS_TOKEN_STORAGE_KEY = "access_token";
 
 function redirectToLogin() {
   if (typeof window !== "undefined" && window.location.pathname !== "/") {
     window.location.href = "/";
+  }
+}
+
+function getStoredAccessToken() {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || "";
+}
+
+function setStoredAccessToken(token) {
+  if (typeof window === "undefined") return;
+  if (token) {
+    window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+  } else {
+    window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   }
 }
 
@@ -37,12 +52,19 @@ async function refreshSession() {
     credentials: "include"
   });
 
-  return handleResponse(res);
+  const data = await handleResponse(res);
+  setStoredAccessToken(data?.accessToken || "");
+  return data;
 }
 
 async function request(path, options = {}, retry = true) {
   const method = options.method || "GET";
   const headers = new Headers(options.headers || {});
+  const accessToken = getStoredAccessToken();
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
 
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase())) {
     const csrfToken = getCookie("csrf_token");
@@ -75,11 +97,13 @@ async function request(path, options = {}, retry = true) {
 }
 
 export async function login(email, password) {
-  return request("/auth/login", {
+  const data = await request("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })
   });
+  setStoredAccessToken(data?.accessToken || "");
+  return data;
 }
 
 export async function register(payload) {
@@ -123,9 +147,13 @@ export async function resetPassword(token, newPassword) {
 }
 
 export async function logout() {
-  return request("/auth/logout", {
-    method: "POST"
-  });
+  try {
+    return await request("/auth/logout", {
+      method: "POST"
+    });
+  } finally {
+    setStoredAccessToken("");
+  }
 }
 
 export async function getProducts() {

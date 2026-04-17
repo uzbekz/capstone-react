@@ -219,6 +219,12 @@ export function createServiceApp() {
   app.use(cookieParser());
   app.use(express.json());
   
+  // Request logger
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    next();
+  });
+
   app.use(rateLimit({
     windowMs: 60 * 1000,
     max: Number(process.env.PUBLIC_API_RATE_LIMIT || 200),
@@ -226,5 +232,15 @@ export function createServiceApp() {
     legacyHeaders: false
   }));
   app.use(csrfProtection);
+
+  // Error handler
+  app.use((err, req, res, next) => {
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+    res.status(err.status || 500).json({
+      error: err.message || "Internal Server Error",
+      path: req.path
+    });
+  });
+
   return app;
 }

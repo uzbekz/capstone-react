@@ -36,9 +36,20 @@ const ordersProxy = createProxyMiddleware({ target: 'http://localhost:5003', ...
 const usersProxy = createProxyMiddleware({ target: 'http://localhost:5004', ...proxyOptions });
 
 app.use((req, res, next) => {
-  if (req.path.startsWith('/auth')) return authProxy(req, res, next);
-  if (req.path.startsWith('/products')) return productsProxy(req, res, next);
-  if (req.path.startsWith('/orders') || req.path.startsWith('/reports')) return ordersProxy(req, res, next);
+  console.log(`[GATEWAY] ${new Date().toISOString()} ${req.method} ${req.url}`);
+  if (req.path.startsWith('/auth')) {
+    console.log(`[GATEWAY] Routing to Auth Service: ${req.path}`);
+    return authProxy(req, res, next);
+  }
+  if (req.path.startsWith('/products')) {
+    console.log(`[GATEWAY] Routing to Products Service: ${req.path}`);
+    return productsProxy(req, res, next);
+  }
+  if (req.path.startsWith('/orders') || req.path.startsWith('/reports')) {
+    console.log(`[GATEWAY] Routing to Orders Service: ${req.path}`);
+    return ordersProxy(req, res, next);
+  }
+  console.log(`[GATEWAY] Fallback: Routing to Users Service: ${req.path}`);
   return usersProxy(req, res, next); // fallback
 });
 

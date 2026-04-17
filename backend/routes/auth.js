@@ -20,7 +20,8 @@ const LOGIN_LOCK_MINUTES = Number(process.env.LOGIN_LOCK_MINUTES || 15);
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const NODE_ENV = process.env.NODE_ENV || "development";
 const IS_PRODUCTION = NODE_ENV === "production";
-const COOKIE_SAME_SITE = process.env.COOKIE_SAME_SITE || (IS_PRODUCTION ? "none" : "lax");
+const COOKIE_SAME_SITE = process.env.COOKIE_SAME_SITE || "lax";
+const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
 const CSRF_TOKEN_COOKIE = "csrf_token";
@@ -52,7 +53,7 @@ const transporter = hasSmtpConfig
 function getCookieOptions(maxAgeMs, overrides = {}) {
   return {
     httpOnly: true,
-    secure: IS_PRODUCTION || COOKIE_SAME_SITE === "none",
+    secure: COOKIE_SECURE,
     sameSite: COOKIE_SAME_SITE,
     path: "/",
     maxAge: maxAgeMs,
@@ -63,7 +64,7 @@ function getCookieOptions(maxAgeMs, overrides = {}) {
 function getCsrfCookieOptions(maxAgeMs) {
   return {
     httpOnly: false,
-    secure: IS_PRODUCTION || COOKIE_SAME_SITE === "none",
+    secure: COOKIE_SECURE,
     sameSite: COOKIE_SAME_SITE,
     path: "/",
     maxAge: maxAgeMs
@@ -169,7 +170,7 @@ async function issueSessionCookies(res, user, session) {
 
 function clearAuthCookies(res) {
   const commonCookieOptions = {
-    secure: IS_PRODUCTION || COOKIE_SAME_SITE === "none",
+    secure: COOKIE_SECURE,
     sameSite: COOKIE_SAME_SITE
   };
 

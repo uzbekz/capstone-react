@@ -20,6 +20,7 @@ const LOGIN_LOCK_MINUTES = Number(process.env.LOGIN_LOCK_MINUTES || 15);
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const NODE_ENV = process.env.NODE_ENV || "development";
 const IS_PRODUCTION = NODE_ENV === "production";
+const COOKIE_SAME_SITE = process.env.COOKIE_SAME_SITE || (IS_PRODUCTION ? "none" : "lax");
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
 const CSRF_TOKEN_COOKIE = "csrf_token";
@@ -51,8 +52,8 @@ const transporter = hasSmtpConfig
 function getCookieOptions(maxAgeMs, overrides = {}) {
   return {
     httpOnly: true,
-    secure: IS_PRODUCTION,
-    sameSite: "strict",
+    secure: IS_PRODUCTION || COOKIE_SAME_SITE === "none",
+    sameSite: COOKIE_SAME_SITE,
     path: "/",
     maxAge: maxAgeMs,
     ...overrides
@@ -62,8 +63,8 @@ function getCookieOptions(maxAgeMs, overrides = {}) {
 function getCsrfCookieOptions(maxAgeMs) {
   return {
     httpOnly: false,
-    secure: IS_PRODUCTION,
-    sameSite: "strict",
+    secure: IS_PRODUCTION || COOKIE_SAME_SITE === "none",
+    sameSite: COOKIE_SAME_SITE,
     path: "/",
     maxAge: maxAgeMs
   };
@@ -159,7 +160,8 @@ async function issueSessionCookies(res, user, session) {
   });
 
   res.cookie(ACCESS_TOKEN_COOKIE, accessToken, getCookieOptions(ACCESS_TOKEN_TTL_SECONDS * 1000));
-  res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, getCookieOptions(refreshMaxAge, { path: "/auth" }));
+  // Keep the refresh token available for both direct `/auth/*` calls and proxied `/api/auth/*` calls.
+  res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, getCookieOptions(refreshMaxAge));
   res.cookie(CSRF_TOKEN_COOKIE, csrfToken, getCsrfCookieOptions(refreshMaxAge));
 
   return { accessToken, csrfToken, refreshExpiresAt: expiresAt };
@@ -167,12 +169,12 @@ async function issueSessionCookies(res, user, session) {
 
 function clearAuthCookies(res) {
   const commonCookieOptions = {
-    secure: IS_PRODUCTION,
-    sameSite: "strict"
+    secure: IS_PRODUCTION || COOKIE_SAME_SITE === "none",
+    sameSite: COOKIE_SAME_SITE
   };
 
   res.clearCookie(ACCESS_TOKEN_COOKIE, { ...commonCookieOptions, path: "/" });
-  res.clearCookie(REFRESH_TOKEN_COOKIE, { ...commonCookieOptions, path: "/auth" });
+  res.clearCookie(REFRESH_TOKEN_COOKIE, { ...commonCookieOptions, path: "/" });
   res.clearCookie(CSRF_TOKEN_COOKIE, { ...commonCookieOptions, path: "/" });
 }
 

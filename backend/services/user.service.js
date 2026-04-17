@@ -103,13 +103,7 @@ app.get("/cart", authenticate, authorize("customer"), async (req, res) => {
       where: { user_id: userId },
       include: [{ model: Product }]
     });
-    const result = items.map(it => {
-      const obj = it.toJSON();
-      if (obj.Product.image && Buffer.isBuffer(obj.Product.image)) {
-        obj.Product.image = obj.Product.image.toString('base64');
-      }
-      return obj;
-    });
+    const result = items.map((it) => it.toJSON());
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

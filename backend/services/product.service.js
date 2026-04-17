@@ -4,6 +4,7 @@ import Product from '../models/Product.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { writeAudit } from "../lib/auditLog.js";
 import { Op } from "sequelize";
+import { deleteProductImage, uploadProductImage } from "../lib/s3.js";
 
 const app = createServiceApp();
 const storage = multer.memoryStorage();
@@ -69,9 +70,17 @@ app.post(
         price,
         quantity,
         weight,
-        image: req.file ? req.file.buffer : null
+        image_key: null,
+        image_url: null
       });
-      res.status(201).json(newProduct);
+      if (req.file) {
+        const uploadedImage = await uploadProductImage(req.file, newProduct.id);
+        await newProduct.update({
+          image_key: uploadedImage.key,
+          image_url: uploadedImage.url
+        });
+      }
+      res.status(201).json(enrichProductJson(await Product.findByPk(newProduct.id)));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -84,19 +93,34 @@ app.put(
   authorize('product_manager'),
   upload.single('image'),
   async (req, res) => {
-    const updateData = { ...req.body };
-    if (req.file) updateData.image = req.file.buffer;
+    try {
+      const updateData = { ...req.body };
+      const prev = await Product.findByPk(req.params.id);
+      if (!prev) {
+        return res.status(404).json({ message: "Product not found" });
+      }
 
-    const prev = await Product.findByPk(req.params.id);
-    await Product.update(updateData, { where: { id: req.params.id } });
-    if (prev && updateData.quantity != null && Number(updateData.quantity) !== Number(prev.quantity)) {
-      await writeAudit(req.user.id, "product_restock", {
-        product_id: prev.id,
-        from: prev.quantity,
-        to: updateData.quantity
-      });
+      if (req.file) {
+        const uploadedImage = await uploadProductImage(req.file, prev.id);
+        updateData.image_key = uploadedImage.key;
+        updateData.image_url = uploadedImage.url;
+      }
+
+      await Product.update(updateData, { where: { id: req.params.id } });
+      if (req.file && prev.image_key) {
+        deleteProductImage(prev.image_key).catch(() => null);
+      }
+      if (updateData.quantity != null && Number(updateData.quantity) !== Number(prev.quantity)) {
+        await writeAudit(req.user.id, "product_restock", {
+          product_id: prev.id,
+          from: prev.quantity,
+          to: updateData.quantity
+        });
+      }
+      res.json({ message: "Product updated" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-    res.json({ message: "Product updated" });
   }
 );
 
@@ -105,7 +129,14 @@ app.delete(
   authenticate,
   authorize('product_manager'),
   async (req, res) => {
+    const product = await Product.findByPk(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
     await Product.destroy({ where: { id: req.params.id } });
+    if (product.image_key) {
+      deleteProductImage(product.image_key).catch(() => null);
+    }
     res.json({ message: "Product deleted" });
   }
 );

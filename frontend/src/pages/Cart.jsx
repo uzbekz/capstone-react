@@ -51,9 +51,7 @@ function formatIndianPrice(price) {
           name: item.Product?.name || "",
           price: parseFloat(item.Product?.price || 0),
           qty: item.quantity,
-          imageSrc: item.Product?.image
-            ? `data:image/jpeg;base64,${item.Product.image}`
-            : "",
+          imageSrc: item.Product?.image_url || "",
         }));
         setCart(items);
       }

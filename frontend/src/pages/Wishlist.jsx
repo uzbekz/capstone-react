@@ -38,14 +38,6 @@ function Wishlist() {
     load();
   }, [load]);
 
-  function imageSrc(p) {
-    if (!p?.image) return "";
-    const bytes = new Uint8Array(p.image.data);
-    let binary = "";
-    bytes.forEach((b) => (binary += String.fromCharCode(b)));
-    return `data:image/jpeg;base64,${btoa(binary)}`;
-  }
-
   async function remove(id) {
     try {
       await removeWishlistItem(id);
@@ -75,8 +67,8 @@ function Wishlist() {
         <div className="wishlist-grid">
           {items.map((p) => (
             <div key={p.id} className="wishlist-card">
-              {imageSrc(p) ? (
-                <img src={imageSrc(p)} alt={p.name} className="wishlist-img" />
+              {p.image_url ? (
+                <img src={p.image_url} alt={p.name} className="wishlist-img" />
               ) : (
                 <div className="wishlist-img-fallback">No image</div>
               )}

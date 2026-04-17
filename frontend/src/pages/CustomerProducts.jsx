@@ -90,14 +90,7 @@ function formatIndianPrice(price) {
   const processedProducts = useMemo(() => {
     return products.map((p) => ({
       ...p,
-      imageSrc: p.image
-        ? (() => {
-            const bytes = new Uint8Array(p.image.data);
-            let binary = "";
-            bytes.forEach((b) => (binary += String.fromCharCode(b)));
-            return `data:image/jpeg;base64,${btoa(binary)}`;
-          })()
-        : "",
+      imageSrc: p.image_url || "",
     }));
   }, [products]);
 

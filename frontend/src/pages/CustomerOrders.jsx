@@ -269,10 +269,10 @@ function CustomerOrders() {
               <div className="order-items-grid">
                 {order.items.map((item) => (
                   <div key={item.id} className="order-item">
-                    {item.Product.image && (
+                    {item.Product.image_url && (
                       <div className="item-image">
                         <img
-                          src={`data:image/jpeg;base64,${item.Product.image}`}
+                          src={item.Product.image_url}
                           alt={item.Product.name}
                         />
                       </div>

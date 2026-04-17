@@ -123,7 +123,7 @@ app.post(
         await t.rollback();
         if (String(inner.message).startsWith("INSUFFICIENT_STOCK:")) {
           return res.status(400).json({
-            message: `Not enough stock for ${inner.message.split(":")[0]}`
+            message: `Not enough stock for ${inner.message.split(":")[1] || "product"}`
           });
         }
         throw inner;
@@ -167,18 +167,12 @@ app.get(
           include: [
             {
               model: Product,
-              attributes: ["name", "image"]
+              attributes: ["name", "image_url"]
             }
           ]
         });
 
-        const itemsWithBase64 = items.map(item => {
-          const itemObj = item.toJSON();
-          if (itemObj.Product && itemObj.Product.image && Buffer.isBuffer(itemObj.Product.image)) {
-            itemObj.Product.image = itemObj.Product.image.toString('base64');
-          }
-          return itemObj;
-        });
+        const itemsWithBase64 = items.map((item) => item.toJSON());
 
         result.push({
           ...serializeOrderWithReturnMeta({
@@ -518,17 +512,11 @@ app.get(
 
       const items = await OrderItem.findAll({
         where: { order_id: order.id },
-        include: [{ model: Product, attributes: ["name", "price", "image"] }]
+        include: [{ model: Product, attributes: ["name", "price", "image_url"] }]
       });
       const returnWindowDays = await getNumericSetting("return_window_days");
 
-      const itemsWithBase64 = items.map(item => {
-        const obj = item.toJSON();
-        if (obj.Product.image && Buffer.isBuffer(obj.Product.image)) {
-          obj.Product.image = item.Product.image.toString('base64');
-        }
-        return obj;
-      });
+      const itemsWithBase64 = items.map((item) => item.toJSON());
 
       const payload = {
         ...serializeOrderWithReturnMeta({

@@ -144,6 +144,7 @@ export function enrichProductJson(product) {
   const reserved = Number(p.reserved_quantity || 0);
   return {
     ...p,
+    image: undefined,
     available_quantity: Math.max(0, qty - reserved)
   };
 }

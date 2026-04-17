@@ -42,8 +42,14 @@ const Product = sequelize.define('Product', {
     type: DataTypes.DECIMAL(8, 2)
   },
 
-  image: {
-    type: DataTypes.BLOB('long')   // LONGBLOB
+  image_key: {
+    type: DataTypes.STRING(512),
+    allowNull: true
+  },
+
+  image_url: {
+    type: DataTypes.STRING(2048),
+    allowNull: true
   }
 
 }, {

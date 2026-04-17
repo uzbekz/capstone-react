@@ -19,6 +19,7 @@ const ALL_ALLOWED_ORIGINS = [...new Set([...ALLOWED_ORIGINS, ...LOCAL_DEV_ORIGIN
 app.use(cors({
   origin(origin, callback) {
     if (!origin || ALL_ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    console.error(`CORS REJECTED! Origin: "${origin}" not in:`, ALL_ALLOWED_ORIGINS);
     return callback(new Error("Origin not allowed by CORS"));
   },
   credentials: true

@@ -6,7 +6,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 5000,
-        SQL_SYNC_ALTER: 'true'
+        SQL_SYNC_ALTER: 'false'
       }
     },
     {
@@ -15,7 +15,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 5001,
-        SQL_SYNC_ALTER: 'true'
+        SQL_SYNC_ALTER: 'false'
       }
     },
     {
@@ -24,7 +24,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 5002,
-        SQL_SYNC_ALTER: 'true'
+        SQL_SYNC_ALTER: 'false'
       }
     },
     {
@@ -33,7 +33,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 5003,
-        SQL_SYNC_ALTER: 'true'
+        SQL_SYNC_ALTER: 'false'
       }
     },
     {
@@ -42,7 +42,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 5004,
-        SQL_SYNC_ALTER: 'true'
+        SQL_SYNC_ALTER: 'false'
       }
     }
   ]

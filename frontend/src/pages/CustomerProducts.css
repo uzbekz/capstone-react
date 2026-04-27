@@ -154,34 +154,6 @@
   width: auto;
 }
 
-.wishlist-heart {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.92);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-  transition: color 0.15s ease, transform 0.15s ease;
-}
-
-.wishlist-heart.on {
-  color: #e11d48;
-}
-
-.wishlist-heart:hover {
-  transform: scale(1.06);
-}
-
 .stock-reserved {
   font-size: 11px;
   color: #64748b;

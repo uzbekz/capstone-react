@@ -12,7 +12,6 @@ import OrderItem from "../models/OrderItem.js";
 import Cart from "../models/Cart.js";
 import AppSetting from "../models/AppSetting.js";
 import AuditLog from "../models/AuditLog.js";
-import WishlistItem from "../models/WishlistItem.js";
 import Product from "../models/Product.js";
 import { Op, Transaction } from "sequelize";
 
@@ -30,10 +29,6 @@ UserSession.belongsTo(User, { foreignKey: "user_id" });
 Product.hasMany(Cart, { foreignKey: "product_id" });
 Cart.belongsTo(Product, { foreignKey: "product_id" });
 
-User.hasMany(WishlistItem, { foreignKey: "user_id" });
-WishlistItem.belongsTo(User, { foreignKey: "user_id" });
-Product.hasMany(WishlistItem, { foreignKey: "product_id" });
-WishlistItem.belongsTo(Product, { foreignKey: "product_id" });
 User.hasMany(AuditLog, { foreignKey: "user_id" });
 AuditLog.belongsTo(User, { foreignKey: "user_id" });
 

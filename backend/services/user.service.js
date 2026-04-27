@@ -12,7 +12,6 @@ import sequelize from '../db.js';
 import User from '../models/User.js';
 import Cart from "../models/Cart.js";
 import AppSetting from "../models/AppSetting.js";
-import WishlistItem from "../models/WishlistItem.js";
 import Product from '../models/Product.js';
 import Order from '../models/Order.js';
 import OrderItem from '../models/OrderItem.js';
@@ -64,35 +63,6 @@ app.get("/health", (req, res) => {
     service: "capstone-backend",
     timestamp: new Date().toISOString()
   });
-});
-
-// WISHLIST
-app.get("/wishlist", authenticate, authorize("customer"), async (req, res) => {
-  try {
-    const rows = await WishlistItem.findAll({
-      where: { user_id: req.user.id },
-      include: [{ model: Product }]
-    });
-    const products = rows.map((w) => w.Product).filter(Boolean).map((p) => enrichProductJson(p));
-    res.json(products);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post("/wishlist", authenticate, authorize("customer"), async (req, res) => {
-  try {
-    const { product_id } = req.body;
-    const product = await Product.findByPk(product_id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
-    await WishlistItem.findOrCreate({ where: { user_id: req.user.id, product_id } });
-    res.status(201).json({ message: "Added to wishlist" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete("/wishlist/:productId", authenticate, authorize("customer"), async (req, res) => {
-  try {
-    await WishlistItem.destroy({ where: { user_id: req.user.id, product_id: req.params.productId } });
-    res.json({ message: "Removed" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // CART

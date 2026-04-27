@@ -317,24 +317,6 @@ export async function updateProfileAddress(payload) {
   });
 }
 
-export async function getWishlist() {
-  return request("/wishlist");
-}
-
-export async function addWishlistItem(productId) {
-  return request("/wishlist", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ product_id: productId })
-  });
-}
-
-export async function removeWishlistItem(productId) {
-  return request(`/wishlist/${productId}`, {
-    method: "DELETE"
-  });
-}
-
 export async function getUsers() {
   return request("/users");
 }

@@ -12,7 +12,6 @@ import CustomerProducts from './pages/CustomerProducts.jsx'
 import Cart from './pages/Cart.jsx'
 import CustomerOrders from './pages/CustomerOrders.jsx'
 import CustomerProfile from './pages/CustomerProfile.jsx'
-import Wishlist from './pages/Wishlist.jsx'
 import OrderDetails from './pages/OrderDetails.jsx'
 import AdminUsers from './pages/AdminUsers.jsx'
 import ForgotPassword from "./pages/ForgotPassword.jsx"
@@ -58,7 +57,6 @@ function App() {
         <Route path="/customerOrders" element={<CustomerOrders />}/>
         <Route path="/order/:id" element={<OrderDetails />}/>
         <Route path="/profile" element={<CustomerProfile />}/>
-        <Route path="/wishlist" element={<Wishlist />}/>
         <Route path="/adminUsers" element={<AdminUsers />}/>
         <Route path="/adminUsers/approvals" element={<AdminUsers />}/>
         <Route path="/adminApprovals" element={<Navigate to="/adminUsers/approvals" replace />}/>

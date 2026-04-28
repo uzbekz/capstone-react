@@ -88,11 +88,16 @@
 }
 
 /* Icon support */
-.input--has-icon .input {
+.input--has-left-icon {
   padding-left: var(--space-10);
 }
 
-.input--has-icon.input--has-right-icon .input {
+.input--has-right-icon {
+  padding-right: var(--space-10);
+}
+
+.input--has-left-icon.input--has-right-icon {
+  padding-left: var(--space-10);
   padding-right: var(--space-10);
 }
 
@@ -111,6 +116,10 @@
 
 .input__icon--right {
   right: var(--space-3);
+}
+
+.input__icon--right > * {
+  pointer-events: auto;
 }
 
 .input:focus + .input__icon {

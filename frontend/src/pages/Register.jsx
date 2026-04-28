@@ -10,6 +10,7 @@ function Register() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState("customer");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showSnackbar } = useSnackbar();
@@ -60,14 +61,25 @@ function Register() {
                   required
                 />
 
-                <input
-                  type="password"
-                  id="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
+                <div className="password-field">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
 
                 <select id="role" value={role} onChange={e => setRole(e.target.value)}>
                   <option value="customer">Customer</option>

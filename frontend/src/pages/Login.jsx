@@ -10,6 +10,7 @@ import { Button, Input } from "../components/UI";
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { showSnackbar } = useSnackbar();
@@ -73,7 +74,7 @@ function Login() {
 
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 label="Password"
                 placeholder="Enter your password"
                 value={password}
@@ -81,6 +82,18 @@ function Login() {
                 required
                 autoComplete="current-password"
                 fullWidth
+                className="password-input"
+                rightIcon={(
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                )}
               />
 
               <Button 

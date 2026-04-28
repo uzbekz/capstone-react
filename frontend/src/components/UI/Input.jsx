@@ -17,6 +17,8 @@ const Input = ({
   const errorClass = error ? 'input--error' : '';
   const widthClass = fullWidth ? 'input--full-width' : '';
   const hasIconClass = (leftIcon || rightIcon) ? 'input--has-icon' : '';
+  const hasLeftIconClass = leftIcon ? 'input--has-left-icon' : '';
+  const hasRightIconClass = rightIcon ? 'input--has-right-icon' : '';
   
   const classes = [
     baseClass,
@@ -24,6 +26,8 @@ const Input = ({
     errorClass,
     widthClass,
     hasIconClass,
+    hasLeftIconClass,
+    hasRightIconClass,
     className
   ].filter(Boolean).join(' ');
 

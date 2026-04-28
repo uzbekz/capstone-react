@@ -246,6 +246,13 @@ function OrderDetails() {
           </div>
         )}
 
+        {order.status === "cancelled" && order.cancellation_message && (
+          <div className="cancellation-banner">
+            <p className="meta-label">Cancellation message from admin</p>
+            <p className="cancellation-message">{order.cancellation_message}</p>
+          </div>
+        )}
+
         <div className="order-info-grid">
           <div className="info-card">
             <p className="meta-label">Current Status</p>

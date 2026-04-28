@@ -526,6 +526,7 @@ app.get(
         items: itemsWithBase64
       };
       if (req.user.role === "customer") {
+        payload.cancellation_message = payload.internal_cancel_note || null;
         delete payload.internal_cancel_note;
       }
       res.json(payload);
